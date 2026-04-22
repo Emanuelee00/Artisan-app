@@ -1,0 +1,3080 @@
+Sei l'architetto di "Artisan App", un marketplace tipo Uber per artigiani.
+Stack: React Native + Expo (mobile), Node.js + Express + TypeScript (backend),
+PostgreSQL + MongoDB + Redis (DB), Stripe (pagamenti), Socket.IO (realtime),
+BullMQ (code async), Firebase (push).
+
+REGOLA FONDAMENTALE — MODALITÀ MOCK:
+Ogni servizio esterno (Stripe, Firebase, Redis, MongoDB, PostgreSQL, Twilio)
+deve avere un file mock parallelo in /src/mocks/ che lo sostituisce se la
+variabile d'ambiente non è presente. L'app deve girare al 100% senza .env.
+
+Pattern da usare ovunque:
+  import { stripe } from '../config/stripe.config'
+  // stripe.config.ts controlla se STRIPE_SECRET_KEY esiste:
+  //   → se sì, usa Stripe reale
+  //   → se no, importa e usa StripeMock da /mocks/stripe.mock.ts
+
+Ogni modulo deve essere:
+- Indipendente (zero dipendenze circolari)
+- Estendibile aggiungendo file senza toccare quelli esistenti
+- Tipizzato al 100% con TypeScript
+- Testabile con Vitest
+
+Tieni questo contesto per tutti i prompt successivi.
+The user is setting up the context for "Artisan App" - a marketplace like Uber for artisans. They want me to keep this context in mind for future prompts. Let me save this as a project memory since it's important architectural context that should persist across conversations.
+
+Let me first check if there's already a MEMORY.md file and any existing memories.
+
+Contesto ricevuto e salvato. Leggo la struttura attuale del progetto prima di memorizzare.
+
+Bash Check project structure and existing memory
+IN
+ls /home/eielmini/Documents/artisan-app && cat /home/eielmini/.claude/projects/-home-eielmini-Documents-artisan-app/memory/MEMORY.md 2>/dev/null || echo "MEMORY.md non esiste"
+
+OUT
+artisan-app
+setup-artisan-app.sh
+MEMORY.md non esiste
+Bash Check inner project directory
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app 2>/dev/null || echo "vuota"
+
+OUT
+apps
+infra
+package.json
+packages
+turbo.json
+Bash List all project files up to depth 4
+IN
+find /home/eielmini/Documents/artisan-app/artisan-app -maxdepth 4 -type f | sort
+
+OUT
+/home/eielmini/Documents/artisan-app/artisan-app/apps/admin/app/layout.tsx
+/home/eielmini/Documents/artisan-app/artisan-app/apps/admin/package.json
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/Dockerfile
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/package.json
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/app.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/server.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/tsconfig.json
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/app/_layout.tsx
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/package.json
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/services/api.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/services/chat.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/services/jobs.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/services/payments.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/mobile/store/auth.store.ts
+/home/eielmini/Documents/artisan-app/artisan-app/.env.example
+/home/eielmini/Documents/artisan-app/artisan-app/.gitignore
+/home/eielmini/Documents/artisan-app/artisan-app/infra/ci-cd/github-actions.yml
+/home/eielmini/Documents/artisan-app/artisan-app/infra/docker-compose.yml
+/home/eielmini/Documents/artisan-app/artisan-app/infra/nginx/default.conf
+/home/eielmini/Documents/artisan-app/artisan-app/infra/scripts/deploy.sh
+/home/eielmini/Documents/artisan-app/artisan-app/infra/scripts/migrate.sh
+/home/eielmini/Documents/artisan-app/artisan-app/package.json
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/package.json
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/chat.types.ts
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/index.ts
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/invoice.types.ts
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/job.types.ts
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/payment.types.ts
+/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/user.types.ts
+/home/eielmini/Documents/artisan-app/artisan-app/turbo.json
+Read app.ts
+Read .env.example
+Read package.json
+Ora salvo il contesto architetturale in memoria.
+
+Write project_artisan_architecture.md
+60 lines
+---
+name: Artisan App — Architettura e Regole Fondamentali
+description: Stack, struttura monorepo, regola mock, pattern di import e convenzioni per Artisan App
+type: project
+---
+
+# Artisan App — Contesto Architetturale
+
+**Concept:** Marketplace tipo Uber per artigiani (cliente trova artigiano, prenota, paga).
+
+## Stack
+- **Mobile:** React Native + Expo (`apps/mobile/`)
+- **Backend:** Node.js + Express + TypeScript (`apps/backend/`)
+- **Admin:** Next.js (`apps/admin/`)
+- **DB:** PostgreSQL (relazionale) + MongoDB (documenti) + Redis (cache/realtime)
+- **Pagamenti:** Stripe
+- **Realtime:** Socket.IO
+- **Code async:** BullMQ
+- **Push notifications:** Firebase Admin SDK
+- **SMS:** Twilio
+- **Storage:** AWS S3
+- **Shared types:** `packages/shared-types/`
+- **Monorepo:** Turborepo (`turbo.json`, root `package.json`)
+
+## Regola FONDAMENTALE — Modalità Mock
+
+Ogni servizio esterno deve avere un file mock parallelo in `apps/backend/src/mocks/` che lo sostituisce se la variabile d'ambiente non è presente. L'app deve girare al 100% senza `.env`.
+
+**Pattern obbligatorio per ogni config di servizio esterno:**
+```typescript
+// es: src/config/stripe.config.ts
+import Stripe from 'stripe'
+import { StripeMock } from '../mocks/stripe.mock'
+
+export const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : (new StripeMock() as unknown as Stripe)
+```
+
+Servizi con mock richiesti: Stripe, Firebase, Redis, MongoDB, PostgreSQL, Twilio, S3/AWS.
+
+## Convenzioni di Modulo
+
+- **Indipendente:** zero dipendenze circolari
+- **Estendibile:** aggiungere file senza toccare quelli esistenti (open/closed)
+- **Tipizzato al 100%:** TypeScript strict, nessun `any` implicito
+- **Testabile:** Vitest per unit/integration test
+
+## Struttura Backend (`apps/backend/src/`)
+- `config/` — configurazioni servizi (usano il pattern mock)
+- `mocks/` — mock di tutti i servizi esterni
+- `gateway/` — errorHandler, rateLimiter, router principale
+- (da costruire) `modules/` — domini: auth, jobs, payments, chat, users, notifications...
+
+## Variabili d'Ambiente Chiave (da `.env.example`)
+DATABASE_URL, MONGO_URI, REDIS_URL, JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, FIREBASE_PROJECT_ID, TWILIO_ACCOUNT_SID, GOOGLE_MAPS_API_KEY, S3_BUCKET, AWS_ACCESS_KEY_ID
+
+**Why:** L'app deve essere sviluppabile e dimostrabile senza account esterni reali.
+**How to apply:** Prima di scrivere qualsiasi integrazione con servizio esterno, implementare sempre il mock corrispondente e il file config con rilevamento env.
+Write MEMORY.md
+4 lines
+# Memory Index — Artisan App
+
+- [Architettura e Regole Fondamentali](project_artisan_architecture.md) — Stack, struttura monorepo Turborepo, regola mock obbligatoria, pattern config/mock per tutti i servizi esterni
+Contesto memorizzato. Ecco il quadro di ciò che ho trovato nel progetto:
+
+Struttura attuale (artisan-app/):
+
+
+apps/
+  backend/   — Express + TypeScript, entry point esistente (app.ts, server.ts)
+  mobile/    — Expo, servizi base già abbozzati
+  admin/     — Next.js, solo layout
+packages/
+  shared-types/  — Tipi condivisi (User, Job, Payment, Chat, Invoice)
+infra/         — Docker, Nginx, CI/CD, script deploy/migrate
+Cosa manca ancora per rispettare la regola mock:
+
+src/config/ — nessun file di configurazione per Stripe, Redis, Postgres, MongoDB, Firebase, Twilio
+src/mocks/ — nessun mock ancora
+src/gateway/ — errorHandler, rateLimiter e mainRouter sono importati ma non esistono su disco
+Pronti a partire. Dimmi da dove vuoi iniziare:
+
+Fondamenta — config/ + mocks/ per tutti i servizi (Stripe, Redis, PG, Mongo, Firebase, Twilio, S3)
+Gateway — errorHandler, rateLimiter, router principale
+Primo modulo — es. auth (registrazione/login JWT) o jobs (creazione lavoro)
+Tutto insieme — scaffolding completo del backend con tutti e tre i layer
+Crea il sistema di mock completo in apps/backend/src/mocks/.
+Devo poter testare l'intera app senza nessuna variabile d'ambiente.
+
+Genera questi file con implementazioni funzionanti (non stub vuoti):
+
+1. mocks/stripe.mock.ts
+   - Simula createPaymentIntent → ritorna { clientSecret: 'mock_secret_...' }
+   - Simula createConnectAccount → ritorna { id: 'acct_mock_123' }
+   - Simula transfers.create → logga e ritorna success
+   - Salva tutti i "pagamenti" in un Map in memoria
+
+2. mocks/firebase.mock.ts
+   - Simula fcm.send → logga la notifica in console con emoji 🔔
+   - Tiene un array in memoria delle ultime 50 notifiche inviate
+   - Espone getLastNotifications() per i test
+
+3. mocks/redis.mock.ts
+   - Implementa get/set/setex/del/geoadd/georadius/geopos usando Map e array in memoria
+   - Deve essere compatibile con l'interfaccia ioredis
+
+4. mocks/postgres.mock.ts
+   - Implementa query() usando array in memoria
+   - Pre-popola con 3 utenti fake (1 admin, 1 client, 1 artigiano)
+   - Pre-popola con 2 job fake
+
+5. mocks/mongo.mock.ts
+   - Usa mongodb-memory-server oppure array in memoria
+   - Compatibile con mongoose
+
+6. config/env.ts
+   - Usa Zod ma con .default() su tutto ciò che ha un mock
+   - Se manca DATABASE_URL usa 'mock', se manca STRIPE_SECRET_KEY usa 'mock'
+   - Esporta anche isMock(key) → boolean
+
+Ogni config file (stripe.config.ts, firebase.config.ts, ecc.) deve fare:
+  const isReal = env.STRIPE_SECRET_KEY !== 'mock'
+  export const stripe = isReal ? new Stripe(env.STRIPE_SECRET_KEY) : StripeMock
+The user wants me to create a complete mock system for the Artisan App backend. Let me analyze what needs to be created:
+
+mocks/stripe.mock.ts - Full Stripe mock
+
+mocks/firebase.mock.ts - Firebase FCM mock
+
+mocks/redis.mock.ts - Redis mock compatible with ioredis
+
+mocks/postgres.mock.ts - PostgreSQL mock with fake data
+
+mocks/mongo.mock.ts - MongoDB/Mongoose mock
+
+config/env.ts - Zod-based env config with defaults
+
+I also need to set up the config files that consume these mocks for Stripe, Firebase, Redis, PostgreSQL, and MongoDB. Let me check the existing shared types first to understand the data structures I'm working with.
+
+Leggo i tipi condivisi e il tsconfig per allinearmi alle strutture dati esistenti.
+
+Read user.types.ts
+Read job.types.ts
+Read payment.types.ts
+Read tsconfig.json
+Read chat.types.ts
+Read server.ts
+Now I have a full picture. The server.ts already imports env from ./config/env, and various connection functions. Let me create:
+
+config/env.ts - Zod-based env config with defaults
+
+mocks/stripe.mock.ts
+
+mocks/firebase.mock.ts
+
+mocks/redis.mock.ts
+
+mocks/postgres.mock.ts
+
+mocks/mongo.mock.ts
+
+config/stripe.config.ts
+
+config/firebase.config.ts
+
+config/redis.config.ts (will be used by shared/db/redis.ts)
+
+config/postgres.config.ts
+
+config/mongo.config.ts
+
+For the env config, I'll use Zod with defaults for everything that has a mock, and export an isMock() helper to check if a value equals 'mock'. Setting up the schema...
+
+Defining environment variables... Finishing the environment validation schema, then setting up mock implementations for the external services. I need to create mock versions of Stripe, Firebase, and Redis that match their real API interfaces—Stripe with payment intents and transfers, Firebase with message sending, and Redis with basic key-value operations.
+
+For Redis, I'll need to handle geo operations using the Haversine formula and implement TTL expiration with timeouts. The Postgres mock is trickier since I need to parse SQL and maintain in-memory tables, so I'll use pattern matching for the most common query types rather than a full parser. I'm leaning toward creating an in-memory MongoDB mock since the user wants to avoid external downloads. I'll build a simple class that stores documents in Maps and patches mongoose's core methods to use this store instead of connecting to an actual database. I need to create a facade layer where the config file exports a mongoDb object that can be either the real mongoose implementation or an in-memory mock, so business modules have a clean seam for testing without needing to patch mongoose directly. Now I'm sketching out the directory structure for the backend configuration files.
+
+Setting up the environment schema... Finishing up the environment schema with the remaining API keys, then parsing it against the actual process environment and exporting the typed config. I'm also setting up a helper function to check if a value is using the mock default. Now I need to create a Stripe mock that implements the key payment and account creation methods.
+
+Building the Stripe mock class... Writing mock Stripe methods... Writing Firebase mock implementation... Setting up the Redis mock storage...
+
+Now I'm implementing the expiration check logic and the Haversine formula to calculate distances between geographic coordinates for the geo operations.
+
+Implementing Redis mock methods... Writing hash operations... Implementing list and geo operations... Finishing the geo radius search by returning either the results with distances formatted as strings, or just the member names depending on the options. Then I'm implementing the geopos method to look up coordinates for specific members, and adding stub methods for connection handling.
+
+Now I need to add a static clear method that resets all the in-memory stores and clears any pending timeouts. After that, I'm moving on to implement a PostgreSQL mock that can parse and handle common SQL patterns like SELECT, INSERT, UPDATE, and DELETE queries with parameter binding. Building the query parser... Writing query parser...
+
+Actually, I'm realizing this is getting too complex for what I really need. The mock postgres will mostly handle straightforward queries like SELECT with simple WHERE conditions on a single column, or basic INSERTs, so I should focus on supporting just those common patterns rather than building a full SQL parser. INTO users (...) VALUES (...) RETURNING *
+
+Rather than a full SQL parser, let me implement a simpler pattern-matching approach that handles these cases.
+
+Actually, let me use a different approach - I'll create a functional query executor that uses regex to identify the query type and table, a simple expression evaluator for WHERE clauses, and returns results in pg-compatible format.
+
+Building the query executor... Finishing the null check logic, then moving on to implement the MongoDB mock. I'm thinking through how to handle mongoose's rich API—using an in-memory collection approach with Maps for storage and basic CRUD operations seems more practical than spinning up a full database server. Let me reconsider the best way to structure this mock to actually work with the Model-level methods the business logic depends on. Writing mock implementations... Defining the artisan profile data with location coordinates and service details, then setting up the jobs table with client-artisan assignments and job specifics like location and scheduling information. Writing the query executor... Writing condition parsing logic... Writing the query router...
+
+Now I'm thinking through the MongoDB implementation strategy. Since downloading memory-server adds overhead, I'll build an in-memory mock that handles the core operations without external dependencies. I'm settling on a structure with a MongoMock class that maintains an in-memory store, paired with a createMockModel factory function that returns a mongoose-compatible model, and a connectMongo function that resolves immediately without actual database connection. The key is using a factory pattern so the mock can be swapped in during testing while keeping the production code clean.
+
+Now I'm mapping out the full file structure across all the mocks I need to create.
+
+I'll start writing these files out—the config files will handle importing either real services or their mock equivalents depending on the environment, and the postgres mock specifically needs to generate UUIDs for INSERT operations to simulate realistic ID generation. I'm mapping out the ioredis interface signatures for the mock—set, setex, get, del all return promises, and the geo commands like geoadd, georadius, and geopos have their own return types. I also need to implement the event emitter interface with an on method. Let me write out all the files now, keeping in mind that GEORADIUS is deprecated in newer Redis versions.
+
+Implementing the mock document store... I see there's also $pull for removing items from arrays. Now I'm mapping out the filter syntax with exact matches, array membership checks, and comparison operators. I have a solid grasp of the MongoDB API patterns, so I'm ready to create the mock implementations for all the external services and configuration files.
+
+I'm starting with the config files for Stripe, Firebase, Redis, Postgres, and Mongo. For the Stripe mock specifically, I need to define a custom interface that captures only the essential methods we're using rather than trying to match the full Stripe SDK types, then make sure the mock object satisfies that interface so it can be swapped in seamlessly. I need to clarify the structure the user is asking for. They want config files in config/ that contain the initialization logic, but server.ts imports from shared/db/, so I should create wrapper files there that call the config functions. Let me re-examine what they're actually requesting to make sure I'm building the right file structure. I need to be practical here—the user asked for specific files, but I should also create the shared/db/ files since server.ts depends on them. So I'm creating the mocks, all the config files for each service, and the database layer files that tie everything together. I'm debating the scope here—the user asked for a complete mock system with functional implementations, not stubs. The server.ts file imports from shared/db and gateway modules, so I need those to exist for the code to actually work. I'll create the 11 files they explicitly requested plus the database and logger modules those depend on, but I'll skip the gateway files since those are a separate concern that can come later. Now I'm setting up the environment validation schema with Zod, defining all the required variables for databases, authentication, and third-party services like Stripe. Finishing the schema validation and then setting up mock implementations for Stripe's core payment methods like creating and retrieving payment intents, confirming transactions, and handling account transfers. Writing the mock Stripe client... Still writing mock methods... Now I'm setting up a Firebase Cloud Messaging mock that stores notifications in memory, keeping only the most recent 50 messages and logging each one with its token and title information. Writing the multicast handler and mock exports...
+
+Now I'm moving on to the Redis mock implementation. I need to support the ioredis interface with methods like set, get, keys, and flushall, and I'll use function overloads to handle the set method's optional expiry parameters.
+
+Setting up in-memory stores... Finishing the haversine distance calculation and setting up a Redis mock class...
+
+Now I'm implementing the string operations for the mock Redis client, handling the set method with support for expiration options like EX for seconds or PX for milliseconds, and also adding a setex method that combines setting a value with an expiration time in one call. Implementing Redis methods for key expiration and pattern matching... Implementing hash operations... Implementing list operations... Writing Redis methods... Continuing with the geospatial methods...
+
+Now I'm implementing the distance calculation between two members, retrieving their coordinates and using the haversine formula to compute the distance, then converting it to the requested unit by applying the appropriate conversion factor.
+
+Implementing utility methods...
+
+Now I'm moving on to the Postgres mock, which is more involved since I need to handle parameterized SQL queries by replacing placeholders with actual values, then parsing and executing them against in-memory tables. Setting up seed data...
+
+I'm defining the artisan profile with their specialization in plumbing, experience level, hourly rate, verification status, and location details for Milan. Then I'm creating the jobs dataset with a completed plumbing repair job that includes the client, assigned artisan, location coordinates, and scheduling information.
+
+Populating the in-memory database tables...
+
+Now I'm writing utility functions to retrieve tables and handle SQL parameter substitution, converting placeholders and values into properly formatted SQL strings. Writing SQL parsing logic... Writing condition parsing logic... Still writing condition handlers... Now I'm handling the sorting logic for ORDER BY, checking if it's descending and comparing values while pushing nulls to the end, then applying LIMIT and OFFSET to slice the results before returning them.
+
+For the INSERT handler, I'm extracting the table name and column names from the SQL, parsing the VALUES clause to get the raw values, and building a new row object with an auto-generated ID and timestamp before assigning each column value.
+
+Finishing the value parsing logic... Writing the UPDATE handler... Writing the query handler... Finishing the mock implementation...
+
+I need to restructure how I'm handling the seed data—the references to seedUsers, seedArtisanProfiles, and seedJobs should be defined before the seed() method uses them. Also, I should reconsider the type annotations since these are constants rather than arrays. For the postgres mock, I still need to handle a few more SQL command types to make it more complete.
+
+Now moving on to the MongoDB mock, I'm setting up a factory function that creates mock models with support for common operations like find, findById, create, and update. I'll define the filter and update operation types to handle MongoDB's query syntax, then build out the model interface with the necessary methods.
+
+Building the mock model factory... Writing filter operators... Continuing with the update operations...
+
+I'm handling the $push operator to add elements to arrays, with support for the $each modifier to push multiple items at once. Then I'm implementing $pull to remove matching items from arrays, and finally processing any direct field assignments that aren't operators before setting the updatedAt timestamp.
+
+Now I'm building out a mock model factory that creates a collection interface with standard database operations like find, findOne, and findById that filter documents against the provided criteria.
+
+Writing the create and update methods... Writing database update methods... Writing database methods... Now I'm setting up the Stripe and Firebase configuration files. For Stripe, I'm conditionally using either a mock implementation or the real Stripe client depending on the environment. For Firebase, I'm initializing the messaging service with similar mock/real logic. I realize I can't use dynamic await import() at the top level in a CommonJS module, so I need to switch to require() instead. I'm wrapping the Firebase initialization in a function that checks if we're in mock mode, and if not, it uses require() to load the admin SDK synchronously and set up the app with the credentials from environment variables.
+
+Actually, that approach with require() works but feels messy. Let me refactor this to be cleaner by declaring the messaging instance upfront and conditionally assigning it based on whether we're mocking.
+
+Refactoring the Firebase setup... I'm reconsidering the approach—using a helper function to create the messaging client would be cleaner than the conditional assignment. I could export a const that picks between the mock and real implementation based on the environment, which avoids the awkward let declaration and keeps the initialization logic contained.
+
+Setting up the Firebase client initialization... Refining the Redis configuration to use a proper import instead of dynamic require, making it cleaner and more type-safe with IORedis. Now I'm setting up the Postgres configuration similarly, creating a database object that either uses the mock implementation or connects to a real Pool instance, with methods for querying, connecting, and closing the connection. I'm realizing the type casting is making this unnecessarily complicated, so I'm going to strip it down and just focus on exporting a simple db.query() function that abstracts away whether we're using the mock or real postgres implementation. I'll use lazy initialization to avoid creating the pool until it's actually needed.
+
+Now I'm setting up the MongoDB config similarly—creating connection functions that check the mock flag and route to either the mock implementation or the real mongoose connection, plus a model factory that returns the appropriate model type.
+
+The return type for the model factory is getting complicated with the union of mock and real mongoose models, so I'm going to simplify by keeping the config focused just on connection management and letting individual modules handle their own model creation directly. Refactoring the mongo config to use regular imports instead of dynamic ones, and simplifying the connection logic to check the mock flag before deciding whether to connect to the real database or use the mock.
+
+Now I'm ready to write all eleven files at once—the env config, five mock implementations, and five service configs that depend on them. Let me do a final check of what I'm creating: the environment setup, mocks for Stripe, Firebase, Redis, and Postgres, plus the corresponding config files that tie everything together.
+
+Wait, I need to be careful with the Firebase mock—I'm importing Message and MulticastMessage types from firebase-admin/messaging, which requires the actual firebase-admin package to be installed.
+
+The user wants me to continue creating the mock system. Let me start writing all the files. I'll create them in batches.
+
+Let me start with config/env.ts and the mocks. I'll create them in parallel where possible.
+
+The server.ts imports:
+
+./config/env
+./shared/db/postgres
+./shared/db/mongo
+./shared/db/redis
+./shared/logger
+./shared/socket
+So I need to create:
+
+src/config/env.ts
+src/mocks/stripe.mock.ts
+src/mocks/firebase.mock.ts
+src/mocks/redis.mock.ts
+src/mocks/postgres.mock.ts
+src/mocks/mongo.mock.ts
+src/config/stripe.config.ts
+src/config/firebase.config.ts
+src/config/redis.config.ts (or in shared/db/redis.ts)
+src/config/postgres.config.ts (or in shared/db/postgres.ts)
+Now I'm mapping out all the configuration and mock files I need to generate to support the server dependencies.
+
+For the Redis mock, I need to implement the ioredis interface with methods like get, set, setex, del, and the geospatial operations like geoadd, georadius, and geopos, plus the standard hash and list operations. For Postgres, I'll need to implement a query method that can handle the database interactions.
+
+For Mongo, I'm thinking through whether to use mongodb-memory-server or build a lightweight in-memory implementation. Since we want to avoid extra dependencies, I'll create a simple array-based store that mimics mongoose operations and provides connect/disconnect functions.
+
+Looking at how server.ts imports these, the structure should be: postgres.ts exports connectPostgres() and the db pool, mongo.ts exports connectMongo(), and redis.ts exports connectRedis() and the redis client. I'm settling on the simplest approach: when MONGO_URI is set to 'mock', I'll skip the actual mongoose connection and instead provide mock models with basic in-memory CRUD operations. Now I'll write out all the configuration and mock files in batches to get the app running without environment variables.
+
+Creo tutti i file in parallelo, partendo da env.ts e i mock core.
+
+Write env.ts
+Write failed
+import { z } from 'zod'
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.coerce.number().default(3000),
+  FRONTEND_URL: z.string().default('http://localhost:8081'),
+
+  DATABASE_URL: z.string().default('mock'),
+  MONGO_URI: z.string().default('mock'),
+  REDIS_URL: z.string().default('mock'),
+
+  JWT_SECRET: z.string().default('mock_jwt_secret_dev_only'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+
+  STRIPE_SECRET_KEY: z.string().default('mock'),
+  STRIPE_WEBHOOK_SECRET: z.string().default('mock'),
+  STRIPE_PLATFORM_FEE_PERCENT: z.coerce.number().default(15),
+
+  FIREBASE_PROJECT_ID: z.string().default('mock'),
+  FIREBASE_PRIVATE_KEY: z.string().default('mock'),
+  FIREBASE_CLIENT_EMAIL: z.string().default('mock'),
+
+  TWILIO_ACCOUNT_SID: z.string().default('mock'),
+  TWILIO_AUTH_TOKEN: z.string().default('mock'),
+  TWILIO_PHONE_NUMBER: z.string().default('+15550000000'),
+
+  GOOGLE_MAPS_API_KEY: z.string().default('mock'),
+
+  S3_BUCKET: z.string().default('mock'),
+  S3_REGION: z.string().default('eu-west-1'),
+  AWS_ACCESS_KEY_ID: z.string().default('mock'),
+  AWS_SECRET_ACCESS_KEY: z.string().default('mock'),
+})
+
+export const env = envSchema.parse(process.env)
+
+export type Env = z.infer<typeof envSchema>
+
+export function isMock(key: keyof Env): boolean {
+  return (env[key] as string) === 'mock'
+}
+Bash Check backend src directory
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/ 2>/dev/null
+
+OUT
+app.ts
+config
+gateway
+modules
+server.ts
+shared
+Bash List all backend src files
+IN
+find /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src -type f | sort
+
+OUT
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/app.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/config/env.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/config/firebase.config.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/config/stripe.config.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/gateway/auth.middleware.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/gateway/errorHandler.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/gateway/rateLimiter.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/gateway/router.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/gateway/validation.middleware.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/chat/chat.events.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/chat/chat.gateway.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/chat/chat.model.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/chat/chat.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/invoices.controller.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/invoices.model.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/invoices.routes.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/invoices.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/pdf.generator.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/jobs/jobs.controller.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/jobs/jobs.matching.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/jobs/jobs.model.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/jobs/jobs.routes.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/jobs/jobs.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/notifications/firebase.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/notifications/notifications.events.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/notifications/notifications.routes.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/notifications/notifications.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/payments/payments.controller.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/payments/payments.routes.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/payments/stripe.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/tracking/geo.utils.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/tracking/tracking.gateway.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/tracking/tracking.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/users/users.controller.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/users/users.model.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/users/users.routes.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/users/users.schema.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/users/users.service.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/server.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/migrations/001_users.sql
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/migrations/002_jobs.sql
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/migrations/003_payments.sql
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/mongo.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/postgres.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/redis.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/logger.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/queue/bullmq.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/queue/jobs/generateInvoice.job.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/queue/jobs/sendNotification.job.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/queue/jobs/stripePayout.job.ts
+/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/socket.ts
+Il progetto è molto più popolato di quanto previsto. Leggo i file esistenti per non duplicare nulla.
+
+Read env.ts
+Read stripe.config.ts
+Read firebase.config.ts
+Read postgres.ts
+Read mongo.ts
+Read redis.ts
+Read bullmq.ts
+Read stripe.service.ts
+Read firebase.service.ts
+Ho tutto il contesto. Ora scrivo tutti i file in batch paralleli.
+
+Batch 1 — env.ts + stripe.mock.ts + firebase.mock.ts
+
+Edit env.ts
+Added 21 lines
+The diagnostics show two issues:
+
+zod module not found - need to install it
+process not found - need @types/node
+But looking at the package.json, both zod and @types/node are already listed as dependencies. This is likely just a TypeScript server issue or the packages haven't been installed yet. Let me check if node_modules exists and if packages are installed.
+
+Bash Check if dependencies are installed
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/node_modules/zod 2>/dev/null || echo "not installed" && ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules 2>/dev/null | head -5 || echo "root node_modules missing"
+
+OUT
+not installed
+Bash Install all monorepo dependencies
+IN
+cd /home/eielmini/Documents/artisan-app/artisan-app && npm install 2>&1 | tail -5
+
+OUT
+npm error code ETARGET
+npm error notarget No matching version found for multer@^1.4.5.
+npm error notarget In most cases you or one of your dependencies are requesting
+npm error notarget a package version that doesn't exist.
+npm error A complete log of this run can be found in: /home/eielmini/.npm/_logs/2026-04-22T14_43_48_363Z-debug-0.log
+Read package.json
+Edit package.json
+Modified
+Bash Install monorepo dependencies
+IN
+npm install 2>&1 | tail -8
+
+OUT
+npm error syscall open
+npm error path /home/eielmini/.npm/_cacache/tmp/18c34e12
+npm error errno ENOSPC
+npm error nospc Invalid response body while trying to fetch https://registry.npmjs.org/turbo: ENOSPC: no space left on device, open '/home/eielmini/.npm/_cacache/tmp/18c34e12'
+npm error nospc There appears to be insufficient space on your system to finish.
+npm error nospc Clear up some disk space and try again.
+npm error Log files were not written due to an error writing to the directory: /home/eielmini/.npm/_logs
+npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal
+Disco pieno. Prima puliamo la cache npm, poi installiamo solo le dipendenze del backend (senza turbo).
+
+Bash Check disk space and clean npm cache
+IN
+df -h /home && npm cache clean --force 2>&1 | tail -3
+
+OUT
+Filesystem          Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-os   98G   24G   75G  24% /
+npm warn using --force Recommended protections disabled.
+Bash Check where npm cache lives
+IN
+df -h /tmp && df -h $HOME/.npm
+
+OUT
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs           7.7G  2.9M  7.7G   1% /tmp
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme1n1    4.7G  3.9G  879M  82% /home/eielmini
+The issue is that /home/eielmini is on a separate 4.7G partition that is 82% full with only 879MB free. npm cache is in /home/eielmini/.npm. Let me clean the npm cache first to free up space, then install.
+
+Il problema è la partizione /home quasi piena (879MB liberi). Puliamo la cache npm e installiamo solo il necessario.
+
+Bash Check and clean npm cache size
+IN
+du -sh ~/.npm && npm cache clean --force 2>&1 && du -sh ~/.npm
+
+OUT
+896K	/home/eielmini/.npm
+npm warn using --force Recommended protections disabled.
+900K	/home/eielmini/.npm
+Bash Find what is using space in home
+IN
+du -sh /home/eielmini/* 2>/dev/null | sort -rh | head -10
+
+OUT
+212M	/home/eielmini/Documents
+23M	/home/eielmini/VirtualBox VMs
+1012K	/home/eielmini/Downloads
+4.0K	/home/eielmini/#*message*-20260306-130605#
+4.0K	/home/eielmini/#*message*-20260224-215937#
+4.0K	/home/eielmini/#*message*-20251118-112903#
+0	/home/eielmini/Videos
+0	/home/eielmini/Templates
+0	/home/eielmini/Public
+0	/home/eielmini/Pictures
+Bash Find large directories in Documents
+IN
+du -sh /home/eielmini/Documents/* 2>/dev/null | sort -rh | head -10
+
+OUT
+172M	/home/eielmini/Documents/green_site
+13M	/home/eielmini/Documents/artisan-app
+7.4M	/home/eielmini/Documents/libftprintf.a
+6.9M	/home/eielmini/Documents/Common-Core---Printf-3b11f09c-89b0-4a3d-b000-74699abeb8b6
+2.7M	/home/eielmini/Documents/exam1
+1.9M	/home/eielmini/Documents/libft.a
+1.8M	/home/eielmini/Documents/Common-Core---Libft-72fed844-7b48-4830-af45-5a9bdcda5915
+1.8M	/home/eielmini/Documents/commoncorearchived
+1.4M	/home/eielmini/Documents/io
+1.2M	/home/eielmini/Documents/appunti
+The home partition is a 4.7G partition with only 879MB free. But when I look at what's there, it's only 212MB in Documents, 23MB in VMs, etc. That adds up to maybe 300MB of files, but 3.9GB are used. There must be hidden files using the space. Let me check.
+
+Actually, maybe there are hidden directories with node_modules or other large files. Let me check more carefully.
+
+Bash Find large hidden directories in home
+IN
+du -sh /home/eielmini/.[^.]* 2>/dev/null | sort -rh | head -15
+
+OUT
+863M	/home/eielmini/.config
+633M	/home/eielmini/.local
+576M	/home/eielmini/.vscode
+546M	/home/eielmini/.cache
+402M	/home/eielmini/.var
+338M	/home/eielmini/.mozilla
+234M	/home/eielmini/.claude
+900K	/home/eielmini/.npm
+276K	/home/eielmini/.emacs.d
+244K	/home/eielmini/.dotnet
+240K	/home/eielmini/.aws
+184K	/home/eielmini/.git
+108K	/home/eielmini/.expo
+68K	/home/eielmini/.pki
+52K	/home/eielmini/.zcompdump
+Found the issue. The home partition is nearly full because of large hidden directories. The main culprits are:
+
+.config: 863M
+.local: 633M
+.vscode: 576M
+.cache: 546M
+.var: 402M
+.mozilla: 338M
+.claude: 234M
+I should not delete any of these without user permission. Let me try to configure npm to use a different directory for the cache (like /tmp) so we can install the packages. Or better, I can try to install with npm install --prefer-offline or redirect the npm cache to /tmp.
+
+Actually, redirecting the npm cache to /tmp is the way to go since it has plenty of space available with only minimal usage.
+
+La /home è quasi piena per via di .config, .vscode, .cache ecc. — non tocco quelle. Reindirizzo la cache npm su /tmp (7.7G liberi) e installo solo il backend.
+
+Bash Install backend dependencies with cache on /tmp
+IN
+cd /home/eielmini/Documents/artisan-app/artisan-app/apps/backend && npm install --cache /tmp/npm-cache 2>&1 | tail -6
+
+OUT
+12 vulnerabilities (8 low, 4 moderate)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+Bash Verify zod and @types/node are installed
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/node_modules/zod && ls /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/node_modules/@types/node 2>/dev/null | head -3
+
+OUT
+Exit code 2
+ls: cannot access '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/node_modules/zod': No such file or directory
+Bash Check where packages resolved in monorepo
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules/zod 2>/dev/null | head -3 && ls /home/eielmini/Documents/artisan-app/artisan-app/apps/backend/node_modules 2>/dev/null | head -5
+
+OUT
+index.cjs
+index.d.cts
+index.d.ts
+Zod è nel node_modules root del monorepo — corretto per Turborepo. Gli errori IDE erano solo per i package non installati; ora sono risolti. Procedo a scrivere i mock.
+
+Batch 1 — stripe.mock.ts + firebase.mock.ts
+
+Write stripe.mock.ts
+168 lines
+import { logger } from '../shared/logger'
+
+interface MockPaymentIntent {
+  id: string
+  clientSecret: string
+  amount: number
+  currency: string
+  status: 'requires_payment_method' | 'succeeded' | 'canceled'
+  metadata: Record<string, string>
+  createdAt: Date
+}
+
+interface MockAccount {
+  id: string
+  email: string
+  type: string
+  createdAt: Date
+}
+
+interface MockTransfer {
+  id: string
+  amount: number
+  currency: string
+  destination: string
+  createdAt: Date
+}
+
+const paymentIntents = new Map<string, MockPaymentIntent>()
+const accounts = new Map<string, MockAccount>()
+const transfers: MockTransfer[] = []
+
+let counter = 1
+
+function nextId(prefix: string): string {
+  return `${prefix}_mock_${Date.now()}_${counter++}`
+}
+
+export class StripeMock {
+  readonly paymentIntents = {
+    create: async (params: {
+      amount: number
+      currency: string
+      metadata?: Record<string, string>
+      automatic_payment_methods?: unknown
+    }): Promise<{ id: string; client_secret: string; amount: number; currency: string }> => {
+      const id = nextId('pi')
+      const clientSecret = `${id}_secret_mock`
+      const intent: MockPaymentIntent = {
+        id,
+        clientSecret,
+        amount: params.amount,
+        currency: params.currency,
+        status: 'requires_payment_method',
+        metadata: params.metadata ?? {},
+        createdAt: new Date(),
+      }
+      paymentIntents.set(id, intent)
+      logger.info(`[StripeMock] PaymentIntent creato id=${id} amount=${params.amount} ${params.currency}`)
+      return { id, client_secret: clientSecret, amount: params.amount, currency: params.currency }
+    },
+
+    retrieve: async (id: string): Promise<MockPaymentIntent & { client_secret: string }> => {
+      const intent = paymentIntents.get(id)
+      if (!intent) throw new Error(`[StripeMock] PaymentIntent ${id} non trovato`)
+      return { ...intent, client_secret: intent.clientSecret }
+    },
+
+    confirm: async (id: string): Promise<MockPaymentIntent & { client_secret: string }> => {
+      const intent = paymentIntents.get(id)
+      if (!intent) throw new Error(`[StripeMock] PaymentIntent ${id} non trovato`)
+      intent.status = 'succeeded'
+      logger.info(`[StripeMock] PaymentIntent confermato id=${id}`)
+      return { ...intent, client_secret: intent.clientSecret }
+    },
+  }
+
+  readonly accounts = {
+    create: async (params: {
+      type: string
+      email: string
+      capabilities?: unknown
+    }): Promise<{ id: string; email: string; type: string }> => {
+      const id = nextId('acct')
+      const account: MockAccount = { id, email: params.email, type: params.type, createdAt: new Date() }
+      accounts.set(id, account)
+      logger.info(`[StripeMock] Connect account creato id=${id} email=${params.email}`)
+      return { id, email: params.email, type: params.type }
+    },
+
+    retrieve: async (id: string): Promise<MockAccount> => {
+      const account = accounts.get(id)
+      if (!account) throw new Error(`[StripeMock] Account ${id} non trovato`)
+      return account
+    },
+  }
+
+  readonly accountLinks = {
+    create: async (params: {
+      account: string
+      refresh_url: string
+      return_url: string
+      type: string
+    }): Promise<{ url: string; expires_at: number }> => {
+      const url = `http://localhost:3000/mock-stripe-onboarding?account=${params.account}`
+      logger.info(`[StripeMock] AccountLink creato per account=${params.account}`)
+      return { url, expires_at: Math.floor(Date.now() / 1000) + 3600 }
+    },
+  }
+
+  readonly transfers = {
+    create: async (params: {
+      amount: number
+      currency: string
+      destination: string
+      transfer_group?: string
+    }): Promise<{ id: string; amount: number; currency: string; destination: string }> => {
+      const id = nextId('tr')
+      const transfer: MockTransfer = {
+        id,
+        amount: params.amount,
+        currency: params.currency,
+        destination: params.destination,
+        createdAt: new Date(),
+      }
+      transfers.push(transfer)
+      logger.info(
+        `[StripeMock] Transfer creato id=${id} amount=${params.amount} -> ${params.destination}`
+      )
+      return { id, amount: params.amount, currency: params.currency, destination: params.destination }
+    },
+  }
+
+  readonly webhooks = {
+    constructEvent: (
+      payload: Buffer | string,
+      _signature: string,
+      _secret: string
+    ): { type: string; data: { object: unknown } } => {
+      try {
+        const body = typeof payload === 'string' ? payload : payload.toString('utf8')
+        return JSON.parse(body)
+      } catch {
+        throw new Error('[StripeMock] Payload webhook non valido')
+      }
+    },
+  }
+
+  // ── helpers per i test ──────────────────────────────────────────────────────
+
+  getPaymentIntents(): MockPaymentIntent[] {
+    return Array.from(paymentIntents.values())
+  }
+
+  getAccounts(): MockAccount[] {
+    return Array.from(accounts.values())
+  }
+
+  getTransfers(): MockTransfer[] {
+    return [...transfers]
+  }
+
+  reset(): void {
+    paymentIntents.clear()
+    accounts.clear()
+    transfers.length = 0
+  }
+}
+Write firebase.mock.ts
+69 lines
+const MAX_NOTIFICATIONS = 50
+
+export interface MockNotification {
+  token?: string
+  tokens?: string[]
+  title: string
+  body: string
+  data?: Record<string, string>
+  sentAt: Date
+}
+
+const notificationLog: MockNotification[] = []
+
+function store(n: MockNotification): void {
+  notificationLog.unshift(n)
+  if (notificationLog.length > MAX_NOTIFICATIONS) notificationLog.length = MAX_NOTIFICATIONS
+}
+
+export class FirebaseMock {
+  async send(message: {
+    token: string
+    notification?: { title?: string; body?: string }
+    data?: Record<string, string>
+  }): Promise<string> {
+    const n: MockNotification = {
+      token: message.token,
+      title: message.notification?.title ?? '',
+      body: message.notification?.body ?? '',
+      data: message.data,
+      sentAt: new Date(),
+    }
+    store(n)
+    console.log(`🔔 [FirebaseMock] Push → token=${message.token} | "${n.title}" — ${n.body}`)
+    return `mock_message_id_${Date.now()}`
+  }
+
+  async sendEachForMulticast(message: {
+    tokens: string[]
+    notification?: { title?: string; body?: string }
+    data?: Record<string, string>
+  }): Promise<{ successCount: number; failureCount: number; responses: { success: boolean }[] }> {
+    const n: MockNotification = {
+      tokens: message.tokens,
+      title: message.notification?.title ?? '',
+      body: message.notification?.body ?? '',
+      data: message.data,
+      sentAt: new Date(),
+    }
+    store(n)
+    console.log(
+      `🔔 [FirebaseMock] Multicast → ${message.tokens.length} token(s) | "${n.title}" — ${n.body}`
+    )
+    return {
+      successCount: message.tokens.length,
+      failureCount: 0,
+      responses: message.tokens.map(() => ({ success: true })),
+    }
+  }
+
+  // Esposto per i test
+  getLastNotifications(limit = 10): MockNotification[] {
+    return notificationLog.slice(0, limit)
+  }
+
+  reset(): void {
+    notificationLog.length = 0
+  }
+}
+Batch 2 — redis.mock.ts + postgres.mock.ts
+
+Write redis.mock.ts
+190 lines
+interface Entry {
+  value: string
+  expiresAt?: number // ms timestamp
+}
+
+interface GeoEntry {
+  member: string
+  lat: number
+  lng: number
+}
+
+const store = new Map<string, Entry>()
+const geoStore = new Map<string, GeoEntry[]>()
+
+function isExpired(e: Entry): boolean {
+  return e.expiresAt !== undefined && Date.now() > e.expiresAt
+}
+
+function live(key: string): Entry | undefined {
+  const e = store.get(key)
+  if (!e) return undefined
+  if (isExpired(e)) { store.delete(key); return undefined }
+  return e
+}
+
+// Haversine distance in km
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+export class RedisMock {
+  // ── string ops ─────────────────────────────────────────────────────────────
+
+  async get(key: string): Promise<string | null> {
+    return live(key)?.value ?? null
+  }
+
+  async set(key: string, value: string): Promise<'OK'> {
+    store.set(key, { value })
+    return 'OK'
+  }
+
+  async setex(key: string, seconds: number, value: string): Promise<'OK'> {
+    store.set(key, { value, expiresAt: Date.now() + seconds * 1000 })
+    return 'OK'
+  }
+
+  async del(...keys: string[]): Promise<number> {
+    let count = 0
+    for (const k of keys) if (store.delete(k)) count++
+    return count
+  }
+
+  async exists(...keys: string[]): Promise<number> {
+    return keys.filter((k) => live(k) !== undefined).length
+  }
+
+  async expire(key: string, seconds: number): Promise<0 | 1> {
+    const e = live(key)
+    if (!e) return 0
+    store.set(key, { ...e, expiresAt: Date.now() + seconds * 1000 })
+    return 1
+  }
+
+  async incr(key: string): Promise<number> {
+    const e = live(key)
+    const n = parseInt(e?.value ?? '0', 10) + 1
+    store.set(key, { value: String(n), expiresAt: e?.expiresAt })
+    return n
+  }
+
+  // ── hash ops ────────────────────────────────────────────────────────────────
+
+  async hset(key: string, field: string, value: string): Promise<number> {
+    const e = live(key)
+    const obj: Record<string, string> = e ? JSON.parse(e.value) : {}
+    const isNew = !(field in obj)
+    obj[field] = value
+    store.set(key, { value: JSON.stringify(obj) })
+    return isNew ? 1 : 0
+  }
+
+  async hget(key: string, field: string): Promise<string | null> {
+    const e = live(key)
+    if (!e) return null
+    const obj: Record<string, string> = JSON.parse(e.value)
+    return obj[field] ?? null
+  }
+
+  async hgetall(key: string): Promise<Record<string, string> | null> {
+    const e = live(key)
+    if (!e) return null
+    return JSON.parse(e.value) as Record<string, string>
+  }
+
+  async hdel(key: string, ...fields: string[]): Promise<number> {
+    const e = live(key)
+    if (!e) return 0
+    const obj: Record<string, string> = JSON.parse(e.value)
+    let count = 0
+    for (const f of fields) if (f in obj) { delete obj[f]; count++ }
+    store.set(key, { value: JSON.stringify(obj) })
+    return count
+  }
+
+  // ── list ops ────────────────────────────────────────────────────────────────
+
+  async lpush(key: string, ...values: string[]): Promise<number> {
+    const e = live(key)
+    const arr: string[] = e ? JSON.parse(e.value) : []
+    arr.unshift(...values.reverse())
+    store.set(key, { value: JSON.stringify(arr) })
+    return arr.length
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    const e = live(key)
+    if (!e) return []
+    const arr: string[] = JSON.parse(e.value)
+    const end = stop === -1 ? arr.length : stop + 1
+    return arr.slice(start, end)
+  }
+
+  // ── geo ops ─────────────────────────────────────────────────────────────────
+
+  async geoadd(key: string, lng: number, lat: number, member: string): Promise<number> {
+    const entries = geoStore.get(key) ?? []
+    const existing = entries.findIndex((e) => e.member === member)
+    if (existing >= 0) {
+      entries[existing] = { member, lat, lng }
+      return 0
+    }
+    entries.push({ member, lat, lng })
+    geoStore.set(key, entries)
+    return 1
+  }
+
+  async georadius(
+    key: string,
+    lng: number,
+    lat: number,
+    radius: number,
+    unit: 'km' | 'm' | 'mi' | 'ft' = 'km'
+  ): Promise<string[]> {
+    const entries = geoStore.get(key) ?? []
+    const radiusKm =
+      unit === 'km' ? radius
+      : unit === 'm'  ? radius / 1000
+      : unit === 'mi' ? radius * 1.60934
+      : radius * 0.0003048
+
+    return entries
+      .filter((e) => haversineKm(lat, lng, e.lat, e.lng) <= radiusKm)
+      .map((e) => e.member)
+  }
+
+  async geopos(key: string, ...members: string[]): Promise<([number, number] | null)[]> {
+    const entries = geoStore.get(key) ?? []
+    return members.map((m) => {
+      const e = entries.find((x) => x.member === m)
+      return e ? [e.lng, e.lat] : null
+    })
+  }
+
+  // ── lifecycle ───────────────────────────────────────────────────────────────
+
+  async ping(): Promise<'PONG'> {
+    return 'PONG'
+  }
+
+  async quit(): Promise<'OK'> {
+    return 'OK'
+  }
+
+  // ioredis compatibility: event emitter no-ops
+  on(_event: string, _handler: (...args: unknown[]) => void): this { return this }
+  off(_event: string, _handler: (...args: unknown[]) => void): this { return this }
+
+  reset(): void {
+    store.clear()
+    geoStore.clear()
+  }
+}
+Write postgres.mock.ts
+216 lines
+import type { User, ArtisanProfile } from '@artisan/shared-types'
+import type { Job } from '@artisan/shared-types'
+
+// ── Seed data ────────────────────────────────────────────────────────────────
+
+const USERS: (User & { passwordHash: string })[] = [
+  {
+    id: 'usr_admin_001',
+    email: 'admin@artisan.dev',
+    phone: '+39 000 0000001',
+    name: 'Admin Artisan',
+    role: 'admin',
+    createdAt: new Date('2025-01-01'),
+    passwordHash: '$2b$10$mock_hash_admin',
+  },
+  {
+    id: 'usr_client_001',
+    email: 'cliente@artisan.dev',
+    phone: '+39 333 1234567',
+    name: 'Mario Rossi',
+    role: 'client',
+    createdAt: new Date('2025-02-01'),
+    passwordHash: '$2b$10$mock_hash_client',
+  },
+  {
+    id: 'usr_artisan_001',
+    email: 'artigiano@artisan.dev',
+    phone: '+39 347 9876543',
+    name: 'Luigi Bianchi',
+    role: 'artisan',
+    createdAt: new Date('2025-02-15'),
+    passwordHash: '$2b$10$mock_hash_artisan',
+  },
+]
+
+const ARTISAN_PROFILES: ArtisanProfile[] = [
+  {
+    userId: 'usr_artisan_001',
+    category: 'idraulico',
+    bio: 'Idraulico con 10 anni di esperienza, specializzato in impianti civili.',
+    hourlyRate: 45,
+    isVerified: true,
+    rating: 4.8,
+    reviewCount: 34,
+    lat: 41.9028,
+    lng: 12.4964,
+    radiusKm: 20,
+    stripeAccountId: 'acct_mock_123',
+  },
+]
+
+const JOBS: (Job & { paymentStatus: string })[] = [
+  {
+    id: 'job_001',
+    clientId: 'usr_client_001',
+    artisanId: 'usr_artisan_001',
+    title: 'Riparazione perdita sotto lavandino',
+    description: 'Perdita dal sifone sotto il lavandino della cucina.',
+    category: 'idraulico',
+    address: 'Via Roma 10, Roma',
+    lat: 41.8999,
+    lng: 12.5000,
+    scheduledAt: new Date('2025-06-01T10:00:00'),
+    status: 'completed',
+    estimatedPrice: 90,
+    finalPrice: 85,
+    createdAt: new Date('2025-05-28'),
+    paymentStatus: 'completed',
+  },
+  {
+    id: 'job_002',
+    clientId: 'usr_client_001',
+    title: 'Installazione nuovo rubinetto',
+    description: 'Sostituire il miscelatore del bagno.',
+    category: 'idraulico',
+    address: 'Via Nazionale 55, Roma',
+    lat: 41.9010,
+    lng: 12.4950,
+    scheduledAt: new Date('2025-07-15T09:00:00'),
+    status: 'pending',
+    estimatedPrice: 60,
+    createdAt: new Date('2025-07-10'),
+    paymentStatus: 'pending',
+  },
+]
+
+// ── In-memory tables ─────────────────────────────────────────────────────────
+
+type Row = Record<string, unknown>
+
+const tables: Record<string, Row[]> = {
+  users: USERS as unknown as Row[],
+  artisan_profiles: ARTISAN_PROFILES as unknown as Row[],
+  jobs: JOBS as unknown as Row[],
+  payments: [],
+}
+
+// ── Minimal SQL parser ───────────────────────────────────────────────────────
+// Supporta: SELECT * FROM t WHERE id=$1  /  INSERT INTO t(...) VALUES(...)  /  UPDATE / DELETE
+
+function resolveParams(sql: string, params: unknown[]): string {
+  let i = 0
+  return sql.replace(/\$\d+/g, () => {
+    const v = params[i++]
+    return typeof v === 'string' ? `'${v}'` : String(v)
+  })
+}
+
+function parseWhere(whereClause: string, row: Row): boolean {
+  const conditions = whereClause.split(/\s+AND\s+/i)
+  return conditions.every((cond) => {
+    const m = cond.trim().match(/^(\w+)\s*=\s*'?([^']*)'?$/)
+    if (!m) return true
+    return String(row[m[1]]) === m[2]
+  })
+}
+
+export interface MockQueryResult<T = Row> {
+  rows: T[]
+  rowCount: number
+}
+
+export class PostgresMock {
+  async query<T = Row>(sql: string, params: unknown[] = []): Promise<MockQueryResult<T>> {
+    const resolved = resolveParams(sql.trim(), params)
+    const upper = resolved.toUpperCase()
+
+    // ── SELECT ──────────────────────────────────────────────────────────────
+    if (upper.startsWith('SELECT')) {
+      const tableMatch = resolved.match(/FROM\s+(\w+)/i)
+      if (!tableMatch) return { rows: [], rowCount: 0 }
+      const table = tableMatch[1].toLowerCase()
+      const rows: Row[] = tables[table] ? [...tables[table]] : []
+
+      const whereMatch = resolved.match(/WHERE\s+(.+?)(?:ORDER|LIMIT|$)/i)
+      const filtered = whereMatch
+        ? rows.filter((r) => parseWhere(whereMatch[1], r))
+        : rows
+
+      const limitMatch = resolved.match(/LIMIT\s+(\d+)/i)
+      const result = limitMatch ? filtered.slice(0, parseInt(limitMatch[1], 10)) : filtered
+
+      return { rows: result as unknown as T[], rowCount: result.length }
+    }
+
+    // ── INSERT ──────────────────────────────────────────────────────────────
+    if (upper.startsWith('INSERT')) {
+      const tableMatch = resolved.match(/INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i)
+      if (!tableMatch) return { rows: [], rowCount: 0 }
+      const table = tableMatch[1].toLowerCase()
+      const cols = tableMatch[2].split(',').map((c) => c.trim())
+      const vals = tableMatch[3].split(',').map((v) => v.trim().replace(/^'|'$/g, ''))
+      const row: Row = {}
+      cols.forEach((c, i) => { row[c] = vals[i] })
+      if (!tables[table]) tables[table] = []
+      tables[table].push(row)
+      return { rows: [row] as unknown as T[], rowCount: 1 }
+    }
+
+    // ── UPDATE ──────────────────────────────────────────────────────────────
+    if (upper.startsWith('UPDATE')) {
+      const tableMatch = resolved.match(/UPDATE\s+(\w+)\s+SET\s+(.+?)\s+WHERE\s+(.+)/i)
+      if (!tableMatch) return { rows: [], rowCount: 0 }
+      const table = tableMatch[1].toLowerCase()
+      const setPairs = tableMatch[2].split(',').map((s) => s.trim())
+      const rows = tables[table] ?? []
+      let count = 0
+      for (const row of rows) {
+        if (parseWhere(tableMatch[3], row)) {
+          for (const pair of setPairs) {
+            const [k, v] = pair.split('=').map((x) => x.trim().replace(/^'|'$/g, ''))
+            row[k] = v
+          }
+          count++
+        }
+      }
+      return { rows: [], rowCount: count }
+    }
+
+    // ── DELETE ──────────────────────────────────────────────────────────────
+    if (upper.startsWith('DELETE')) {
+      const tableMatch = resolved.match(/FROM\s+(\w+)\s+WHERE\s+(.+)/i)
+      if (!tableMatch) return { rows: [], rowCount: 0 }
+      const table = tableMatch[1].toLowerCase()
+      const before = tables[table]?.length ?? 0
+      tables[table] = (tables[table] ?? []).filter((r) => !parseWhere(tableMatch[2], r))
+      return { rows: [], rowCount: before - tables[table].length }
+    }
+
+    // SELECT 1 health check
+    if (resolved.trim() === 'SELECT 1') {
+      return { rows: [{ '?column?': 1 }] as unknown as T[], rowCount: 1 }
+    }
+
+    return { rows: [], rowCount: 0 }
+  }
+
+  // ── helpers per i test ────────────────────────────────────────────────────
+
+  getTable<T = Row>(name: string): T[] {
+    return (tables[name] ?? []) as unknown as T[]
+  }
+
+  insertRaw(table: string, row: Row): void {
+    if (!tables[table]) tables[table] = []
+    tables[table].push(row)
+  }
+
+  reset(): void {
+    tables.users = USERS as unknown as Row[]
+    tables.artisan_profiles = ARTISAN_PROFILES as unknown as Row[]
+    tables.jobs = JOBS as unknown as Row[]
+    tables.payments = []
+  }
+}
+Batch 3 — mongo.mock.ts
+
+Write mongo.mock.ts
+141 lines
+import type { ChatMessage, Chat } from '@artisan/shared-types'
+
+// ── In-memory collections ────────────────────────────────────────────────────
+
+type Doc = Record<string, unknown> & { _id: string }
+
+const collections = new Map<string, Doc[]>()
+
+let counter = 1
+function nextId(): string {
+  return `mock_oid_${Date.now()}_${counter++}`
+}
+
+// Seed: un paio di chat e messaggi
+const seedChat: Chat & { _id: string } = {
+  _id: 'chat_001',
+  id: 'chat_001',
+  jobId: 'job_001',
+  clientId: 'usr_client_001',
+  artisanId: 'usr_artisan_001',
+  lastMessage: 'Arrivo alle 10!',
+  updatedAt: new Date('2025-05-30'),
+}
+
+const seedMessages: (ChatMessage & { _id: string })[] = [
+  {
+    _id: 'msg_001',
+    id: 'msg_001',
+    chatId: 'chat_001',
+    senderId: 'usr_client_001',
+    text: 'Buongiorno, quando è disponibile?',
+    type: 'text',
+    createdAt: new Date('2025-05-29T08:00:00'),
+  },
+  {
+    _id: 'msg_002',
+    id: 'msg_002',
+    chatId: 'chat_001',
+    senderId: 'usr_artisan_001',
+    text: 'Arrivo alle 10!',
+    type: 'text',
+    createdAt: new Date('2025-05-29T08:05:00'),
+  },
+]
+
+collections.set('chats', [seedChat as unknown as Doc])
+collections.set('messages', seedMessages as unknown as Doc[])
+
+// ── Collection class ─────────────────────────────────────────────────────────
+
+function matchQuery(doc: Doc, query: Record<string, unknown>): boolean {
+  return Object.entries(query).every(([k, v]) => {
+    if (typeof v === 'object' && v !== null && '$in' in (v as object)) {
+      return ((v as { $in: unknown[] }).$in).includes(doc[k])
+    }
+    if (typeof v === 'object' && v !== null && '$gte' in (v as object)) {
+      return (doc[k] as number) >= (v as { $gte: number }).$gte
+    }
+    return doc[k] === v
+  })
+}
+
+class MockCollection<T extends Doc = Doc> {
+  private name: string
+  constructor(name: string) {
+    this.name = name
+    if (!collections.has(name)) collections.set(name, [])
+  }
+
+  private get rows(): T[] { return (collections.get(this.name) ?? []) as T[] }
+
+  async find(query: Partial<T> = {}): Promise<{ toArray: () => Promise<T[]> }> {
+    const q = query as Record<string, unknown>
+    const result = this.rows.filter((d) => matchQuery(d as Doc, q))
+    return { toArray: async () => result }
+  }
+
+  async findOne(query: Partial<T>): Promise<T | null> {
+    const q = query as Record<string, unknown>
+    return this.rows.find((d) => matchQuery(d as Doc, q)) ?? null
+  }
+
+  async insertOne(doc: Omit<T, '_id'> & { _id?: string }): Promise<{ insertedId: string }> {
+    const _id = (doc as { _id?: string })._id ?? nextId()
+    const full = { ...doc, _id } as unknown as T
+    this.rows.push(full)
+    return { insertedId: _id }
+  }
+
+  async insertMany(docs: Array<Omit<T, '_id'> & { _id?: string }>): Promise<{ insertedCount: number }> {
+    for (const doc of docs) await this.insertOne(doc)
+    return { insertedCount: docs.length }
+  }
+
+  async updateOne(
+    query: Partial<T>,
+    update: { $set?: Partial<T>; $push?: Partial<Record<keyof T, unknown>> }
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
+    const q = query as Record<string, unknown>
+    const doc = this.rows.find((d) => matchQuery(d as Doc, q))
+    if (!doc) return { matchedCount: 0, modifiedCount: 0 }
+    if (update.$set) Object.assign(doc, update.$set)
+    return { matchedCount: 1, modifiedCount: 1 }
+  }
+
+  async deleteOne(query: Partial<T>): Promise<{ deletedCount: number }> {
+    const q = query as Record<string, unknown>
+    const idx = this.rows.findIndex((d) => matchQuery(d as Doc, q))
+    if (idx === -1) return { deletedCount: 0 }
+    this.rows.splice(idx, 1)
+    return { deletedCount: 1 }
+  }
+
+  async countDocuments(query: Partial<T> = {}): Promise<number> {
+    const q = query as Record<string, unknown>
+    return this.rows.filter((d) => matchQuery(d as Doc, q)).length
+  }
+}
+
+// ── MongoMock ────────────────────────────────────────────────────────────────
+
+export class MongoMock {
+  collection<T extends Doc = Doc>(name: string): MockCollection<T> {
+    return new MockCollection<T>(name)
+  }
+
+  // helpers per i test
+  getCollection<T extends Doc = Doc>(name: string): T[] {
+    return (collections.get(name) ?? []) as T[]
+  }
+
+  reset(): void {
+    collections.clear()
+    collections.set('chats', [seedChat as unknown as Doc])
+    collections.set('messages', seedMessages as unknown as Doc[])
+  }
+}
+
+// Singleton per usarlo nei service senza reinizializzare
+export const mongoMock = new MongoMock()
+Batch 4 — aggiornamento dei 3 config files + db files
+
+Edit stripe.config.ts
+Added 1 line
+Edit firebase.config.ts
+Added 8 lines
+Ora aggiorno i tre file shared/db/ per usare i mock:
+
+Edit postgres.ts
+Added 9 lines
+Edit redis.ts
+Added 3 lines
+Edit mongo.ts
+Added 4 lines
+Infine, BullMQ usa un connection hardcodato — lo rendo mock-aware:
+
+Edit bullmq.ts
+Added 32 lines
+Ora verifico che la compilazione TypeScript non abbia errori:
+
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+Exit code 2
+src/app.ts(4,25): error TS7016: Could not find a declaration file for module 'compression'. '/home/eielmini/Documents/artisan-app/artisan-app/node_modules/compression/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/compression` if it exists or add a new declaration (.d.ts) file containing `declare module 'compression';`
+src/mocks/postgres.mock.ts(1,43): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/index.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via '@artisan/shared-types' from file '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/mocks/postgres.mock.ts'
+    Imported via '@artisan/shared-types' from file '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/mocks/postgres.mock.ts'
+    Imported via '@artisan/shared-types' from file '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/modules/invoices/pdf.generator.ts'
+    Imported via '@artisan/shared-types' from file '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/mocks/mongo.mock.ts'
+src/modules/invoices/pdf.generator.ts(1,25): error TS7016: Could not find a declaration file for module 'pdfkit'. '/home/eielmini/Documents/artisan-app/artisan-app/node_modules/pdfkit/js/pdfkit.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/pdfkit` if it exists or add a new declaration (.d.ts) file containing `declare module 'pdfkit';`
+src/modules/invoices/pdf.generator.ts(10,21): error TS7006: Parameter 'chunk' implicitly has an 'any' type.
+src/modules/users/users.service.ts(1,20): error TS7016: Could not find a declaration file for module 'bcryptjs'. '/home/eielmini/Documents/artisan-app/artisan-app/node_modules/bcryptjs/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/bcryptjs` if it exists or add a new declaration (.d.ts) file containing `declare module 'bcryptjs';`
+src/shared/db/postgres.ts(1,22): error TS7016: Could not find a declaration file for module 'pg'. '/home/eielmini/Documents/artisan-app/artisan-app/node_modules/pg/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/pg` if it exists or add a new declaration (.d.ts) file containing `declare module 'pg';`
+../../packages/shared-types/src/index.ts(1,15): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/user.types.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(2,15): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/job.types.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(3,15): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/payment.types.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(4,15): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/chat.types.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+../../packages/shared-types/src/index.ts(5,15): error TS6059: File '/home/eielmini/Documents/artisan-app/artisan-app/packages/shared-types/src/invoice.types.ts' is not under 'rootDir' '/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src'. 'rootDir' is expected to contain all source files.
+There are multiple issues:
+
+rootDir problem - shared-types are outside the backend src. Fix: change tsconfig to remove rootDir or change it to the monorepo root, or add composite: true.
+
+Missing @types packages: @types/compression, @types/pdfkit, @types/bcryptjs, @types/pg
+
+The postgres.mock.ts and mongo.mock.ts import from @artisan/shared-types which causes the rootDir issue.
+
+The best approach is to remove rootDir from tsconfig.json entirely and let TypeScript infer it, which aligns with the standard Turborepo pattern and should resolve the shared-types resolution issue. I think the real issue is that these existing imports from @artisan/shared-types were already causing problems in the project, and removing rootDir from the tsconfig is the simplest solution to let TypeScript infer the root properly across the monorepo structure.
+
+Due categorie di errori: rootDir troppo stretto e @types mancanti. Li risolvo in parallelo.
+
+Read tsconfig.json
+Bash Install missing @types packages
+IN
+npm install --save-dev @types/compression @types/bcryptjs @types/pg @types/pdfkit --cache /tmp/npm-cache 2>&1 | tail -4
+
+OUT
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+Edit tsconfig.json
+Removed 1 line
+The tsconfig still has rootDir issue because including shared-types expands the common root. I need to either:
+
+Add "rootDir": "../../" explicitly
+Or keep rootDir as ./src but not include shared-types in the include array (since they're resolved via path mapping, not direct inclusion)
+The better approach is to not include shared-types in include at all - the path mapping handles resolution. The rootDir error was about the rootDir: "./src" constraint being violated by imports. Let me revert the include change and instead remove rootDir entirely, which lets TypeScript infer it.
+
+Actually, removing rootDir entirely would cause the output directory to preserve the full monorepo structure, which is messy. The cleanest fix is to set rootDir: "../../" to cover the whole monorepo while keeping the path mapping for shared-types resolution. The issue is that TypeScript is detecting files from the shared-types package being included through path mapping, which conflicts with the rootDir setting pointing only to ./src. The straightforward fix is to set rootDir: "../.." to encompass the entire monorepo structure, which aligns with where TypeScript actually finds the source files.
+
+Edit tsconfig.json
+Added 1 line
+Edit tsconfig.json
+Modified
+Bash TypeScript type check after tsconfig fix
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+Exit code 2
+src/modules/users/users.service.ts(23,54): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(s: string, hash: string): Promise<boolean>', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(s: string, hash: string, callback?: ((err: Error | null, success: boolean) => void) | undefined, progressCallback?: ((percent: number) => void) | undefined): void', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string'.
+Read users.service.ts (lines 21-28)
+Un errore pre-esistente nel codice del progetto — user.password_hash è unknown perché il modello non è tipizzato. Lo correggo con un cast minimale.
+
+Edit users.service.ts
+Modified
+Bash TypeScript type check — clean run
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Zero errori. Verifico che il server parta senza .env:
+
+Bash Boot server with no .env to verify mock mode works
+IN
+timeout 6 npx tsx src/server.ts 2>&1 || true
+
+OUT
+[2026-04-22T14:52:18.184Z] [32minfo[39m: BullMQ queues inizializzate [MOCK] 
+[2026-04-22T14:52:18.476Z] [32minfo[39m: PostgreSQL [MOCK] connesso 
+[2026-04-22T14:52:18.477Z] [32minfo[39m: MongoDB [MOCK] — in-memory store attivo 
+[2026-04-22T14:52:18.477Z] [32minfo[39m: Redis [MOCK] connesso 
+[2026-04-22T14:52:18.480Z] [32minfo[39m: Socket.IO inizializzato 
+[2026-04-22T14:52:18.482Z] [32minfo[39m: Server running on port 3000 [development]
+Il server parte pulito senza nessuna variabile d'ambiente. Tutto online in mock mode.
+
+Riepilogo di ciò che è stato creato:
+
+File	Cosa fa
+config/env.ts	Schema Zod con .default('mock') su tutto; esporta isMock(key)
+mocks/stripe.mock.ts	paymentIntents, accounts, accountLinks, transfers, webhooks — tutto in Map in memoria
+mocks/firebase.mock.ts	send + sendEachForMulticast con 🔔 in console; getLastNotifications() per i test
+mocks/redis.mock.ts	get/set/setex/del/expire/incr/hset/hget/hgetall/lpush/lrange/geoadd/georadius/geopos
+mocks/postgres.mock.ts	query() con mini SQL parser; seed 3 utenti + 2 job
+mocks/mongo.mock.ts	find/findOne/insertOne/updateOne/deleteOne/countDocuments; seed chat + messaggi
+config/stripe.config.ts	isMock('STRIPE_SECRET_KEY') → StripeMock
+config/firebase.config.ts	isMock('FIREBASE_PROJECT_ID') → FirebaseMock
+shared/db/postgres.ts	pool → PostgresMock se DATABASE_URL=mock
+shared/db/redis.ts	redis → RedisMock se REDIS_URL=mock
+shared/db/mongo.ts	skip mongoose.connect se MONGO_URI=mock
+shared/queue/bullmq.ts	MockQueue inline se REDIS_URL=mock
+setup-artisan-app.sh
+Crea il database layer completo in apps/backend/src/shared/db/.
+
+Per ogni database genera:
+1. Il connector reale
+2. Il fallback mock automatico
+3. Un seed file con dati fake per sviluppo
+
+FILE DA GENERARE:
+
+shared/db/postgres.ts
+- Pool pg reale se DATABASE_URL != 'mock'
+- Altrimenti usa postgres.mock.ts
+- Esporta query<T>(sql, params) → T[]
+- Esporta transaction(fn) per query atomiche
+
+shared/db/mongo.ts
+- Mongoose reale se MONGO_URI != 'mock'
+- Altrimenti usa mongodb-memory-server (installa la dep)
+- Esporta la connection e i modelli già inizializzati
+
+shared/db/redis.ts
+- ioredis reale se REDIS_URL != 'mock'
+- Altrimenti usa redis.mock.ts
+- Esporta set/get/del/geoadd/georadius con tipi corretti
+
+shared/db/seed.ts
+- Esegui con: npx tsx src/shared/db/seed.ts
+- Crea utenti fake, 3 job, 1 pagamento, messaggi chat
+- Usa bcrypt per hashare le password fake
+- Stampa le credenziali di test in console
+
+Migrations in shared/db/migrations/:
+- 001_users.sql (già definito, genera anche lo script runner)
+- 002_jobs.sql
+- 003_payments.sql
+- migrate.ts → script che legge ed esegue i file .sql in ordine
+Let me first read all the existing files to understand what's already there before creating/modifying anything.
+
+Leggo tutti i file esistenti prima di scrivere qualsiasi cosa.
+
+Read postgres.ts
+Read mongo.ts
+Read redis.ts
+Read 001_users.sql
+Read 002_jobs.sql
+Read 003_payments.sql
+Read logger.ts
+Read postgres.mock.ts
+Read mongo.mock.ts
+Read chat.model.ts
+Read users.model.ts
+Read jobs.model.ts
+Now I have a full picture. Let me plan what to create:
+
+shared/db/postgres.ts — Already exists, but needs:
+
+transaction(fn) function for atomic queries
+The mock branch already works
+shared/db/mongo.ts — Already exists, but needs:
+
+Use mongodb-memory-server for mock mode (instead of just skipping connect)
+Export the connection and initialized models (so they can be used by chat.model.ts etc.)
+The current implementation just skips mongoose.connect in mock mode - mongoose models still work because they don't need a connection to be defined, but they need a connection to execute queries. In mock mode they will fail.
+So I need to start mongodb-memory-server and connect mongoose to it in mock mode.
+shared/db/redis.ts — Already exists and works correctly. Just needs typed set/get/del/geoadd/georadius exports.
+
+shared/db/seed.ts — New file, needs:
+
+bcrypt for password hashing
+Insert users, jobs, payment, chat messages
+Print credentials to console
+shared/db/migrations/migrate.ts — New file, reads SQL files in order and executes them
+
+Now I'm thinking through the mongodb-memory-server approach and how to integrate it properly.
+
+For mongo.ts in mock mode, I'll start the in-memory server and connect mongoose to it so the models work normally against the in-memory database. For postgres.ts, I need to add a transaction function that uses real BEGIN/COMMIT/ROLLBACK in production but just runs sequentially in mock mode. For redis.ts, I'm adding typed helper functions for set, get, del, and the geo commands, keeping in mind that ioredis expects longitude before latitude for geoadd.
+
+Now I'm ready to write out all the files - I've settled on using mongodb-memory-server for the mongo mock, adding transaction support to postgres, wrapping redis geo operations with proper typing, and creating comprehensive seed data with bcrypt hashing. I should also check if mongodb-memory-server needs to be installed and handle the migration runner to execute SQL files in order.
+
+Ho tutto. Vedo cosa manca: transaction() in postgres, mongodb-memory-server per il mock mongo reale, wrapper typed per redis, seed.ts e migrate.ts. Installo la dipendenza e scrivo tutto.
+
+Bash Install mongodb-memory-server
+IN
+cd /home/eielmini/Documents/artisan-app/artisan-app/apps/backend && npm install mongodb-memory-server --cache /tmp/npm-cache 2>&1 | tail -4
+
+OUT
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+Bash Verify mongodb-memory-server installed
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules/mongodb-memory-server 2>/dev/null | head -3 && echo "installed"
+
+OUT
+index.d.ts
+index.js
+LICENSE.md
+installed
+Installato. Ora scrivo tutto in parallelo.
+
+postgres.ts — aggiunge transaction()
+
+Edit postgres.ts
+Added 32 lines
+mongo.ts — usa mongodb-memory-server in mock mode + esporta modelli inizializzati
+
+Edit mongo.ts
+Added 16 lines
+redis.ts — aggiunge typed wrappers per geo e operazioni comuni
+
+Edit redis.ts
+Added 49 lines
+migrate.ts — script runner per i file .sql in ordine
+
+Write migrate.ts
+88 lines
+/**
+ * Esegui con: npx tsx src/shared/db/migrate.ts
+ *
+ * Legge tutti i file *.sql in migrations/ in ordine numerico,
+ * esegue ogni statement separato da ';', poi aggiorna la tabella
+ * schema_migrations per non rieseguire migrazioni già applicate.
+ */
+
+import path from 'path'
+import fs from 'fs'
+import { Pool } from 'pg'
+import { env, isMock } from '../../config/env'
+
+async function run(): Promise<void> {
+  if (isMock('DATABASE_URL')) {
+    console.log('⚠️  DATABASE_URL=mock — migrate richiede un DB reale. Skippato.')
+    process.exit(0)
+  }
+
+  const pool = new Pool({ connectionString: env.DATABASE_URL })
+
+  // Tabella di tracking migrazioni
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version  VARCHAR(255) PRIMARY KEY,
+      applied_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
+  const migrationsDir = path.join(__dirname, 'migrations')
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort() // ordine lessicografico → 001_, 002_, 003_
+
+  let applied = 0
+
+  for (const file of files) {
+    const version = file.replace('.sql', '')
+
+    const { rows } = await pool.query(
+      'SELECT version FROM schema_migrations WHERE version = $1',
+      [version]
+    )
+    if (rows.length > 0) {
+      console.log(`  ✓ ${file} già applicata`)
+      continue
+    }
+
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+    // Divide per ';' e filtra righe di commento e statement vuoti
+    const statements = sql
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith('--'))
+
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      for (const stmt of statements) {
+        await client.query(stmt)
+      }
+      await client.query(
+        'INSERT INTO schema_migrations (version) VALUES ($1)',
+        [version]
+      )
+      await client.query('COMMIT')
+      console.log(`  ✅ ${file} applicata (${statements.length} statement)`)
+      applied++
+    } catch (err) {
+      await client.query('ROLLBACK')
+      console.error(`  ❌ ${file} FALLITA — rollback eseguito`)
+      console.error(err)
+      process.exit(1)
+    } finally {
+      client.release()
+    }
+  }
+
+  await pool.end()
+  console.log(`\nMigrations completate: ${applied} nuove su ${files.length} totali.`)
+}
+
+run().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
+seed.ts — dati realistici con bcrypt reale
+
+Write seed.ts
+261 lines
+/**
+ * Esegui con: npx tsx src/shared/db/seed.ts
+ *
+ * Funziona sia con DB reali che in modalità mock (mongodb-memory-server).
+ * Stampa le credenziali di test a fine esecuzione.
+ */
+
+import bcrypt from 'bcryptjs'
+import { connectPostgres, query, transaction } from './postgres'
+import { connectMongo, disconnectMongo } from './mongo'
+import { connectRedis, geoAdd, cacheDel } from './redis'
+import { MessageModel } from '../../modules/chat/chat.model'
+import mongoose from 'mongoose'
+
+// ── Costanti ──────────────────────────────────────────────────────────────────
+
+const BCRYPT_ROUNDS = 10
+
+const CREDENTIALS = [
+  { email: 'admin@artisan.dev',     password: 'Admin1234!',    role: 'admin'   },
+  { email: 'cliente@artisan.dev',   password: 'Cliente123!',   role: 'client'  },
+  { email: 'mario@artisan.dev',     password: 'Mario1234!',    role: 'client'  },
+  { email: 'luigi@artisan.dev',     password: 'Luigi1234!',    role: 'artisan' },
+  { email: 'sara@artisan.dev',      password: 'Sara12345!',    role: 'artisan' },
+]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function upsertUser(data: {
+  email: string
+  password: string
+  name: string
+  phone: string
+  role: string
+}): Promise<string> {
+  const existing = await query<{ id: string }>(
+    'SELECT id FROM users WHERE email = $1',
+    [data.email]
+  )
+  if (existing[0]) return existing[0].id
+
+  const hash = await bcrypt.hash(data.password, BCRYPT_ROUNDS)
+  const rows = await query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, name, phone, role, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,NOW(),NOW()) RETURNING id`,
+    [data.email, hash, data.name, data.phone, data.role]
+  )
+  return rows[0].id
+}
+
+// ── Seed principale ───────────────────────────────────────────────────────────
+
+async function seed(): Promise<void> {
+  console.log('\n🌱 Artisan App — Seed database\n')
+
+  await connectPostgres()
+  await connectMongo()
+  await connectRedis()
+
+  // ── Utenti ────────────────────────────────────────────────────────────────
+  console.log('👤 Creazione utenti...')
+
+  const adminId  = await upsertUser({ email: 'admin@artisan.dev',   password: 'Admin1234!',  name: 'Admin Artisan',  phone: '+39 000 0000001', role: 'admin'   })
+  const clientId = await upsertUser({ email: 'cliente@artisan.dev', password: 'Cliente123!', name: 'Mario Rossi',    phone: '+39 333 1234567', role: 'client'  })
+  const client2Id = await upsertUser({ email: 'mario@artisan.dev',  password: 'Mario1234!',  name: 'Mario Verdi',    phone: '+39 333 9876543', role: 'client'  })
+  const artisan1Id = await upsertUser({ email: 'luigi@artisan.dev', password: 'Luigi1234!',  name: 'Luigi Bianchi',  phone: '+39 347 1111111', role: 'artisan' })
+  const artisan2Id = await upsertUser({ email: 'sara@artisan.dev',  password: 'Sara12345!',  name: 'Sara Conti',     phone: '+39 347 2222222', role: 'artisan' })
+
+  console.log(`   ✓ 5 utenti (admin, 2 clienti, 2 artigiani)`)
+
+  // ── Profili artigiani ─────────────────────────────────────────────────────
+  console.log('🔨 Creazione profili artigiani...')
+
+  const profiles = [
+    {
+      userId: artisan1Id,
+      category: 'idraulico',
+      bio: 'Idraulico con 10 anni di esperienza su impianti civili e industriali.',
+      hourlyRate: 45,
+      lat: 41.9028, lng: 12.4964,
+      radiusKm: 20,
+      stripeAccountId: 'acct_mock_luigi',
+    },
+    {
+      userId: artisan2Id,
+      category: 'elettricista',
+      bio: 'Elettricista certificata CEI, specializzata in domotica e impianti fotovoltaici.',
+      hourlyRate: 55,
+      lat: 41.8919, lng: 12.5113,
+      radiusKm: 15,
+      stripeAccountId: 'acct_mock_sara',
+    },
+  ]
+
+  for (const p of profiles) {
+    const exists = await query('SELECT user_id FROM artisan_profiles WHERE user_id = $1', [p.userId])
+    if (!exists[0]) {
+      await query(
+        `INSERT INTO artisan_profiles
+           (user_id, category, bio, hourly_rate, is_verified, rating, review_count,
+            lat, lng, radius_km, stripe_account_id, created_at)
+         VALUES ($1,$2,$3,$4,true,$5,$6,$7,$8,$9,$10,NOW())`,
+        [p.userId, p.category, p.bio, p.hourlyRate,
+         p.userId === artisan1Id ? 4.8 : 4.6,
+         p.userId === artisan1Id ? 34  : 12,
+         p.lat, p.lng, p.radiusKm, p.stripeAccountId]
+      )
+    }
+    // Aggiorna Redis geo index
+    await cacheDel('artisans:geo')
+    await geoAdd('artisans:geo', p.lat, p.lng, p.userId)
+  }
+
+  console.log('   ✓ 2 profili artigiani + geo index Redis')
+
+  // ── Jobs ──────────────────────────────────────────────────────────────────
+  console.log('📋 Creazione jobs...')
+
+  let job1Id: string, job2Id: string, job3Id: string
+
+  const existingJobs = await query<{ id: string; title: string }>(
+    `SELECT id, title FROM jobs WHERE client_id = $1`, [clientId]
+  )
+
+  if (existingJobs.length === 0) {
+    await transaction(async (q) => {
+      const [j1] = await q<{ id: string }>(
+        `INSERT INTO jobs (client_id, artisan_id, title, description, category, address,
+                           lat, lng, status, scheduled_at, estimated_price, final_price,
+                           created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',$9,9000,8500,NOW()-INTERVAL '10 days',NOW())
+         RETURNING id`,
+        [clientId, artisan1Id,
+         'Riparazione perdita sotto lavandino',
+         'Perdita dal sifone sotto il lavandino della cucina.',
+         'idraulico', 'Via Roma 10, Roma', 41.8999, 12.5000,
+         new Date('2025-06-01T10:00:00')]
+      )
+      job1Id = j1.id
+
+      const [j2] = await q<{ id: string }>(
+        `INSERT INTO jobs (client_id, title, description, category, address,
+                           lat, lng, status, scheduled_at, estimated_price,
+                           created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,6000,NOW(),NOW())
+         RETURNING id`,
+        [client2Id,
+         'Installazione nuovo rubinetto',
+         'Sostituire il miscelatore del bagno principale.',
+         'idraulico', 'Via Nazionale 55, Roma', 41.9010, 12.4950,
+         new Date('2025-07-15T09:00:00')]
+      )
+      job2Id = j2.id
+
+      const [j3] = await q<{ id: string }>(
+        `INSERT INTO jobs (client_id, artisan_id, title, description, category, address,
+                           lat, lng, status, scheduled_at, estimated_price,
+                           created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'in_progress',$9,11000,NOW()-INTERVAL '1 day',NOW())
+         RETURNING id`,
+        [clientId, artisan2Id,
+         'Impianto elettrico garage',
+         'Installazione quadro elettrico e 4 prese nel garage.',
+         'elettricista', 'Via Tiburtina 200, Roma', 41.9200, 12.5400,
+         new Date('2025-07-20T08:00:00')]
+      )
+      job3Id = j3.id
+    })
+    console.log('   ✓ 3 jobs (completed, pending, in_progress)')
+  } else {
+    job1Id = existingJobs[0]?.id ?? ''
+    job2Id = existingJobs[1]?.id ?? ''
+    job3Id = existingJobs[2]?.id ?? ''
+    console.log('   ↩ Jobs già presenti — skip')
+  }
+
+  // ── Pagamento ─────────────────────────────────────────────────────────────
+  console.log('💳 Creazione pagamento...')
+
+  if (job1Id!) {
+    const existingPayment = await query(
+      'SELECT id FROM payments WHERE job_id = $1', [job1Id]
+    )
+    if (!existingPayment[0]) {
+      const platformFee = Math.round(8500 * 15 / 100)   // 1275 centesimi
+      const artisanPayout = 8500 - platformFee           // 7225 centesimi
+      await query(
+        `INSERT INTO payments
+           (job_id, client_id, artisan_id, amount, platform_fee, artisan_payout,
+            currency, status, stripe_payment_intent_id, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,'eur','completed',$7,NOW())`,
+        [job1Id, clientId, artisan1Id, 8500, platformFee, artisanPayout,
+         'pi_mock_seed_001']
+      )
+      console.log(`   ✓ 1 pagamento completato (€85.00, fee €${(platformFee/100).toFixed(2)})`)
+    } else {
+      console.log('   ↩ Pagamento già presente — skip')
+    }
+  }
+
+  // ── Chat messages (MongoDB) ───────────────────────────────────────────────
+  console.log('💬 Creazione messaggi chat...')
+
+  const chatId = `chat_${job1Id ?? 'job_001'}`
+  const existingMsg = await MessageModel.findOne({ chatId })
+
+  if (!existingMsg) {
+    await MessageModel.insertMany([
+      {
+        chatId,
+        senderId: clientId,
+        text: 'Buongiorno, ha disponibilità per mercoledì mattina?',
+        type: 'text',
+        createdAt: new Date('2025-05-29T08:00:00'),
+      },
+      {
+        chatId,
+        senderId: artisan1Id,
+        text: 'Buongiorno! Sì, sono disponibile dalle 9. Mi conferma l\'indirizzo?',
+        type: 'text',
+        createdAt: new Date('2025-05-29T08:03:00'),
+      },
+      {
+        chatId,
+        senderId: clientId,
+        text: 'Via Roma 10, terzo piano, citofono Rossi.',
+        type: 'text',
+        createdAt: new Date('2025-05-29T08:06:00'),
+      },
+      {
+        chatId,
+        senderId: artisan1Id,
+        text: 'Perfetto, arrivo alle 9:30. A domani!',
+        type: 'text',
+        createdAt: new Date('2025-05-29T08:10:00'),
+      },
+    ])
+    console.log('   ✓ 4 messaggi chat')
+  } else {
+    console.log('   ↩ Messaggi già presenti — skip')
+  }
+
+  // ── Riepilogo credenziali ─────────────────────────────────────────────────
+  console.log('\n' + '─'.repeat(60))
+  console.log('🔑 CREDENZIALI DI TEST\n')
+  for (const c of CREDENTIALS) {
+    const label = c.role.padEnd(8)
+    console.log(`  [${label}] ${c.email.padEnd(28)} password: ${c.password}`)
+  }
+  console.log('─'.repeat(60))
+  console.log('\n✅ Seed completato.\n')
+
+  await disconnectMongo()
+  process.exit(0)
+}
+
+seed().catch((err) => {
+  console.error('❌ Seed fallito:', err)
+  process.exit(1)
+})
+Aggiungo gli script migrate e seed al package.json:
+
+Read package.json
+Edit package.json
+Added 2 lines
+Ora il type check completo:
+
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+Exit code 2
+src/shared/db/postgres.ts(44,38): error TS2344: Type 'R' does not satisfy the constraint 'QueryResultRow'.
+src/shared/db/seed.ts(204,26): error TS2454: Variable 'job1Id' is used before being assigned.
+Read postgres.ts (lines 39-50)
+Edit postgres.ts
+Modified
+Edit postgres.ts
+Modified
+Read seed.ts (lines 89-103)
+Read seed.ts (lines 121-145)
+Il problema è che job1Id è dichiarata con let ma assegnata dentro transaction() (che TypeScript tratta come closure asincrona). Fix: inizializzarla a stringa vuota.
+
+Edit seed.ts
+Modified
+Bash TypeScript type check — clean
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Zero errori. Testo il seed in mock mode (senza nessuna variabile d'ambiente):
+
+Bash Run seed in mock mode
+IN
+timeout 60 npx tsx src/shared/db/seed.ts 2>&1
+
+OUT
+Exit code 1
+
+🌱 Artisan App — Seed database
+
+[2026-04-22T14:57:28.831Z] [32minfo[39m: PostgreSQL [MOCK] connesso 
+[2026-04-22T14:57:29.078Z] [32minfo[39m: MongoDB [MOCK] connesso (mongodb-memory-server) 
+[2026-04-22T14:57:29.078Z] [32minfo[39m: Redis [MOCK] connesso 
+👤 Creazione utenti...
+   ✓ 5 utenti (admin, 2 clienti, 2 artigiani)
+🔨 Creazione profili artigiani...
+   ✓ 2 profili artigiani + geo index Redis
+📋 Creazione jobs...
+   ✓ 3 jobs (completed, pending, in_progress)
+💳 Creazione pagamento...
+💬 Creazione messaggi chat...
+❌ Seed fallito: Error: Message validation failed: senderId: Path `senderId` is required.
+    at ValidationError.inspect (/home/eielmini/Documents/artisan-app/artisan-app/node_modules/mongoose/lib/error/validation.js:52:26)
+    at formatValue (node:internal/util/inspect:897:19)
+    at inspect (node:internal/util/inspect:409:10)
+    at formatWithOptionsInternal (node:internal/util/inspect:2590:40)
+    at formatWithOptions (node:internal/util/inspect:2452:10)
+    at console.value (node:internal/console/constructor:345:14)
+    at console.error (node:internal/console/constructor:412:61)
+    at <anonymous> (/home/eielmini/Documents/artisan-app/artisan-app/apps/backend/src/shared/db/seed.ts:258:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  errors: {
+    senderId: ValidatorError: Path `senderId` is required.
+        at validate (/home/eielmini/Documents/artisan-app/artisan-app/node_modules/mongoose/lib/schemaType.js:1443:13)
+        at SchemaType.doValidate (/home/eielmini/Documents/artisan-app/artisan-app/node_modules/mongoose/lib/schemaType.js:1427:7)
+        at /home/eielmini/Documents/artisan-app/artisan-app/node_modules/mongoose/lib/document.js:3134:18
+        at process.processTicksAndRejections (node:internal/process/task_queues:85:11) {
+      properties: [Object],
+      kind: 'required',
+      path: 'senderId',
+      value: undefined,
+      reason: undefined,
+      [Symbol(mongoose#validatorError)]: true
+    }
+  },
+  _message: 'Message validation failed'
+}
+The issue is that senderId is passed in the seed but the MessageModel schema has senderId: { type: String, required: true }. The problem is that artisan1Id is a UUID string from the postgres mock. Let me check why it's failing validation.
+
+Wait - looking at the seed, the artisan1Id is coming from the mock postgres upsertUser, and the mock returns the inserted row. Let me check what upsertUser returns in mock mode.
+
+The mock postgres query() for INSERT returns { rows: [row], rowCount: 1 }. The row is built from cols/vals in the INSERT statement.
+
+I'm realizing the mock INSERT parser might be mishandling the VALUES clause - the regex that extracts column values could be capturing NOW() and other SQL functions incorrectly, which would break the row construction and cause artisan1Id to be undefined or malformed. I see the real problem now—the mock SQL parser is breaking on the NOW() function calls because the regex for extracting VALUES is matching the first closing parenthesis it finds, which cuts off mid-function. But actually, the immediate issue is that artisan1Id is coming back undefined, which means the upsertUser function isn't returning the inserted user's ID properly. Let me trace through what's happening when that INSERT statement runs... The seed is actually creating users successfully since we see the user count passing. The issue must be in how the mock INSERT parser handles the NOW() function inside the VALUES clause—the regex stops at the first closing parenthesis it encounters, which breaks the match when it hits the ) in NOW(). Let me trace through exactly what's being captured to see where the message insertion fails. After the parameter substitution, the SQL query becomes a complete INSERT statement with all the values filled in. Now I'm checking how the regex pattern handles the column list and VALUES clause — the pattern correctly captures the table name and column definitions, though I need to verify it properly handles the closing parenthesis when there are function calls like NOW() in the values. I see the issue now — the [^)]+ pattern matches any character except ), so it grabs everything including the opening parenthesis from NOW(, and then stops at the first closing parenthesis it encounters, which happens to be from NOW(). This means the regex incorrectly captures 'luigi@artisan.dev','$2b...','Luigi Bianchi','+39 347 1111111','artisan',NOW( as the values, treating the ) from NOW() as the end of the VALUES clause.
+
+When the values are split by comma and mapped to columns, NOW( becomes the value for created_at and updated_at ends up undefined since there's no 7th value. The row object never gets an id field populated, so the RETURNING id clause returns nothing.
+
+But the output shows user creation succeeded, so let me trace through the mock more carefully. The upsertUser function first tries to SELECT an existing user (which returns empty), then executes the INSERT. If that INSERT returns a row without an id property, then artisan1Id would be undefined. When that undefined value gets used as senderId in the message creation, that's where things break down.
+
+The real issue is that the seed's INSERT statement uses NOW() for the timestamp columns, which the mock SQL parser can't handle properly. The fix is to remove those timestamp columns from the INSERT entirely and let the database apply the default values instead.
+
+Il problema è il mock SQL parser: NOW() nelle VALUES confonde la regex. Sistemo il parser mock per gestire NOW() e i RETURNING con ID autogenerato.
+
+Read postgres.mock.ts (lines 99-163)
+I see the problem clearly now. The regex \(([^)]+)\) for VALUES can't handle NOW() because the inner ) terminates the match early.
+
+I need to fix the INSERT parser to properly handle nested parentheses in the VALUES clause. The approach:
+
+Before running the VALUES regex, replace NOW(), NOW()-INTERVAL '...' etc. with a placeholder or the actual date string
+Then parse normally
+Let me rewrite the postgres mock's INSERT handler to be more robust:
+
+Replace NOW() with a quoted ISO string before regex parsing
+
+Properly extract the VALUES clause using balanced parentheses
+
+Also handle cases where INSERT has no explicit id column but needs to return one for RETURNING id by generating a UUID-like identifier
+
+Updating the INSERT handler in the postgres mock...
+
+Riscrivo il parser INSERT del mock per gestire NOW(), INTERVAL, e RETURNING:
+
+Edit postgres.mock.ts
+Added 32 lines
+Ora aggiorno l'handler INSERT per usare extractValuesList e gestire RETURNING:
+
+Edit postgres.mock.ts
+Added 28 lines
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Bash Run seed in mock mode
+IN
+timeout 60 npx tsx src/shared/db/seed.ts 2>&1
+
+OUT
+🌱 Artisan App — Seed database
+
+[2026-04-22T14:58:52.997Z] [32minfo[39m: PostgreSQL [MOCK] connesso 
+[2026-04-22T14:58:53.259Z] [32minfo[39m: MongoDB [MOCK] connesso (mongodb-memory-server) 
+[2026-04-22T14:58:53.259Z] [32minfo[39m: Redis [MOCK] connesso 
+👤 Creazione utenti...
+   ✓ 5 utenti (admin, 2 clienti, 2 artigiani)
+🔨 Creazione profili artigiani...
+   ✓ 2 profili artigiani + geo index Redis
+📋 Creazione jobs...
+   ✓ 3 jobs (completed, pending, in_progress)
+💳 Creazione pagamento...
+   ✓ 1 pagamento completato (€85.00, fee €12.75)
+💬 Creazione messaggi chat...
+   ✓ 4 messaggi chat
+
+────────────────────────────────────────────────────────────
+🔑 CREDENZIALI DI TEST
+
+  [admin   ] admin@artisan.dev            password: Admin1234!
+  [client  ] cliente@artisan.dev          password: Cliente123!
+  [client  ] mario@artisan.dev            password: Mario1234!
+  [artisan ] luigi@artisan.dev            password: Luigi1234!
+  [artisan ] sara@artisan.dev             password: Sara12345!
+────────────────────────────────────────────────────────────
+
+✅ Seed completato.
+Tutto verde. Verifico che il server parta ancora correttamente:
+
+Bash Boot server in mock mode
+IN
+timeout 5 npx tsx src/server.ts 2>&1 || true
+
+OUT
+[2026-04-22T14:59:07.574Z] [32minfo[39m: BullMQ queues inizializzate [MOCK] 
+[2026-04-22T14:59:07.841Z] [32minfo[39m: PostgreSQL [MOCK] connesso 
+[2026-04-22T14:59:08.060Z] [32minfo[39m: MongoDB [MOCK] connesso (mongodb-memory-server) 
+[2026-04-22T14:59:08.060Z] [32minfo[39m: Redis [MOCK] connesso 
+[2026-04-22T14:59:08.064Z] [32minfo[39m: Socket.IO inizializzato 
+[2026-04-22T14:59:08.065Z] [32minfo[39m: Server running on port 3000 [development]
+Tutto funziona. Riepilogo di ciò che è stato creato o aggiornato:
+
+File modificati:
+
+File	Cosa è cambiato
+shared/db/postgres.ts	+ transaction(fn) — BEGIN/COMMIT/ROLLBACK reali; pass-through in mock
+shared/db/mongo.ts	Mock usa mongodb-memory-server: mongoose si connette a un'istanza in-memory reale → tutti i modelli funzionano senza modifiche
+shared/db/redis.ts	+ wrapper typed: cacheGet/cacheSet/cacheDel/geoAdd/geoRadius/geoPosition
+mocks/postgres.mock.ts	Parser INSERT riscritto: gestisce NOW(), INTERVAL, parentesi annidate, RETURNING <cols> con ID autogenerato
+File nuovi:
+
+File	Cosa fa
+shared/db/migrate.ts	npm run migrate — legge migrations/*.sql in ordine, tiene traccia in schema_migrations, rollback atomico per file
+shared/db/seed.ts	npm run seed — bcrypt reale, 5 utenti, 2 profili artigiani + geo Redis, 3 job in transaction, 1 pagamento, 4 messaggi chat; stampa credenziali a fine esecuzione
+Comandi disponibili:
+
+
+npm run dev      # server in watch mode (mock automatico senza .env)
+npm run seed     # popola tutti i DB (mock o reali)
+npm run migrate  # applica le migration SQL (richiede DATABASE_URL reale)
+npm test         # vitest
+Genera il modulo Users completo e funzionante.
+Path: apps/backend/src/modules/users/
+
+REQUISITI:
+- Register / Login / RefreshToken / Logout / GetProfile / UpdateProfile
+- JWT access token (15min) + refresh token (7d) in httpOnly cookie
+- Password hashing con bcrypt
+- Ruoli: client | artisan | admin
+- Quando role=artisan, crea anche artisan_profiles alla registrazione
+- Rate limiting specifico per login (5 tentativi / 15min per IP)
+
+GENERA:
+users.schema.ts      → Zod schemas per ogni endpoint
+users.model.ts       → query PostgreSQL tipizzate
+users.service.ts     → business logic pura (no req/res)
+users.controller.ts  → handlers Express (solo try/catch + delega al service)
+users.routes.ts      → Router con middleware applicati
+users.test.ts        → test Vitest per register, login, getProfile
+                        usa i mock, nessuna dipendenza esterna
+
+DETTAGLIO SPECIALE:
+Aggiungi GET /users/me/artisan-profile che ritorna il profilo artigiano
+con rating, categoria, disponibilità. Se non esiste → 404.
+
+L'artigiano al momento del register riceve anche:
+- Un stripeAccountId mock ('acct_mock_' + userId)
+- Viene salvato in artisan_profiles.stripe_account_id
+Let me read all the existing files in the users module and related files before making any changes.
+
+Leggo tutto il codice esistente prima di toccare qualsiasi file.
+
+Read users.schema.ts
+Read users.model.ts
+Read users.service.ts
+Read users.controller.ts
+Read users.routes.ts
+Read auth.middleware.ts
+Read errorHandler.ts
+Read validation.middleware.ts
+Read rateLimiter.ts
+Read router.ts
+Read redis.ts
+Read postgres.ts
+Now I have a clear picture of everything. Let me plan what needs to be created or updated:
+
+users.schema.ts — Add:
+
+updateProfileSchema
+refreshTokenSchema (body with refreshToken OR just from cookie)
+artisanProfileSchema for artisan registration extras
+Export all types
+users.model.ts — Add:
+
+findByRefreshToken — for refresh token validation
+
+update — for profile updates
+
+createArtisanProfile — creates the artisan_profiles row
+
+findArtisanProfile — gets artisan profile by userId
+
+updateFcmToken — for notifications
+
+users.service.ts — Add:
+
+refreshToken — validate refresh token, issue new access token
+logout — invalidate refresh token in Redis
+updateProfile — update user data
+getArtisanProfile — get artisan profile
+users.controller.ts — Add:
+
+refreshToken handler
+logout handler
+updateProfile handler
+getArtisanProfile handler
+Refresh token stored in httpOnly cookie
+users.routes.ts — Add routes for token refresh, logout, and profile updates...
+
+users.test.ts — Vitest tests covering registration, login, profile retrieval, token refresh, and artisan profile access.
+
+Now I'm mapping out the refresh token flow: login issues both an access token with a 15-minute expiration and a refresh token lasting 7 days, with the refresh token stored in Redis and set as an httpOnly cookie. When the client hits the refresh endpoint, it reads the token from the cookie, validates it against Redis, and issues a new access token. On logout, the refresh token gets deleted from Redis and the cookie is cleared.
+
+For the login rate limiter, I'm using express-rate-limit configured to allow 5 attempts per 15-minute window, keyed by IP address.
+
+Artisan registration needs to create a user first, then use that userId to create an artisan profile entry with a mock Stripe account ID. I should wrap this in a transaction to keep things consistent.
+
+Now I'm deciding on the test strategy — I could test just the service layer in isolation or run integration tests against the actual mock databases. I'm going with integration tests that exercise the full stack through the mock postgres, redis, and mongo to catch real interactions.
+
+For the test setup, I'll reset the mock state before each test, call service methods directly, and verify both the returned results and the database state. Since the postgres pool is exported and becomes a PostgresMock instance in test mode, I can access its reset method directly rather than trying to work around it.
+
+The cleaner approach is to export a dedicated resetDb() function from postgres.ts that conditionally calls reset on the mock instance only when in mock mode, keeping the test setup simple and the implementation details encapsulated.
+
+Now I need to handle the other services like Redis, and I can skip worrying about cookies since those are controller-level concerns. Looking at the actual database schema, I notice the real DB uses snake_case column names like user_id, but I need to make sure the mock's seed data matches that convention when I write out all the test files.
+
+I'm mapping out the full structure of both tables — UserRow with fields like id, email, password_hash, name, phone, role, avatar_url, fcm_token, and timestamps, plus ArtisanProfileRow with user_id, category, bio, hourly_rate, verification and rating fields, location data, and Stripe integration. Now I'm writing the schema definitions...
+
+Writing validation schemas... Defining the TypeScript types and database models...
+
+Now I'm setting up the UserModel with methods to query users by email or ID, and a create method that inserts a new user record and returns the full row.
+
+Building the update method... Writing database methods... Finishing up the update query by executing it against the database and returning the updated artisan profile. Now I'm mapping out the service layer methods I need to implement: user registration with optional artisan profile creation in a transaction, login with credential validation and refresh token storage in Redis, token refresh logic, logout to clear the refresh token, profile retrieval and updates, and a dedicated method for fetching artisan profiles.
+
+For the refresh token strategy, I'm going with storing it in Redis at refresh:${userId} with a 7-day TTL—keeping it simple with one active token per user so logout just means deleting that key. On the controller side, I need to handle refresh tokens as httpOnly cookies on login and register, read them from cookies during token refresh, and clear them on logout. I should add cookie-parser middleware to handle this properly.
+
+Actually, since the mobile app uses React Native which can't use httpOnly cookies, I'll return the refresh token in the response body for mobile clients while also setting it as an httpOnly cookie for web clients. The refresh endpoint will accept the token from either source. I could parse cookies manually without cookie-parser to avoid modifying app.ts, but adding the middleware is cleaner.
+
+For the tests, I'm setting up a unit test structure that directly tests the service layer by mocking the postgres connection and resetting it before each test, avoiding the need for supertest or a running server. Setting up the test imports...
+
+Now I'm thinking through the register endpoint requirements for artisans - it needs email, password, name, phone, role, and category fields, with optional bio, hourly rate, and location coordinates.
+
+The response should return the user object with ID and email, both access and refresh tokens, and an artisan profile containing the category and mock Stripe account ID.
+
+Before writing the files, I should verify that cookie-parser types are installed alongside the other dependencies I'm adding to the backend package.json.
+
+Ho il quadro completo. Verifico le dipendenze mancanti prima di scrivere i file.
+
+Bash Check cookie-parser and jwt types presence
+IN
+ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules/cookie-parser 2>/dev/null | head -2 || echo "missing" && ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules/jsonwebtoken 2>/dev/null | head -2 && ls /home/eielmini/Documents/artisan-app/artisan-app/node_modules/@types/jsonwebtoken 2>/dev/null | head -2 || echo "@types/jwt missing"
+
+OUT
+decode.js
+index.js
+index.d.ts
+LICENSE
+Bash Install cookie-parser and its types
+IN
+cd /home/eielmini/Documents/artisan-app/artisan-app/apps/backend && npm install cookie-parser @types/cookie-parser --cache /tmp/npm-cache 2>&1 | tail -3
+
+OUT
+  npm audit fix --force
+
+Run `npm audit` for details.
+Aggiungo cookie-parser ad app.ts e resetDb/resetRedis per i test — poi scrivo tutti i file del modulo in parallelo.
+
+Read app.ts
+Edit app.ts
+Removed 4 lines
+Aggiungo resetDb e resetRedis per i test:
+
+Edit postgres.ts
+Added 4 lines
+Edit redis.ts
+Added 4 lines
+Ora scrivo i 6 file del modulo in batch paralleli.
+
+Batch 1 — users.schema.ts + users.model.ts
+
+Edit users.schema.ts
+Added 28 lines
+Edit users.model.ts
+Added 109 lines
+Batch 2 — users.service.ts
+
+Edit users.service.ts
+Added 130 lines
+Batch 3 — users.controller.ts + users.routes.ts
+
+Edit users.controller.ts
+Added 47 lines
+Edit users.routes.ts
+Added 19 lines
+Batch 4 — users.test.ts
+
+Write users.test.ts
+214 lines
+import { describe, it, expect, beforeEach } from 'vitest'
+import { UsersService } from './users.service'
+import { resetDb } from '../../shared/db/postgres'
+import { resetRedis } from '../../shared/db/redis'
+
+// ── Fixture helpers ───────────────────────────────────────────────────────────
+
+const clientDto = {
+  email:    'test.client@artisan.dev',
+  password: 'Test1234!',
+  name:     'Test Client',
+  phone:    '+39 333 0000001',
+  role:     'client' as const,
+  radiusKm: 20,
+}
+
+const artisanDto = {
+  email:      'test.artisan@artisan.dev',
+  password:   'Test1234!',
+  name:       'Test Artisan',
+  phone:      '+39 347 0000002',
+  role:       'artisan' as const,
+  category:   'idraulico',
+  bio:        'Idraulico di test.',
+  hourlyRate: 40,
+  lat:        41.9,
+  lng:        12.5,
+  radiusKm:   20,
+}
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
+
+beforeEach(() => {
+  resetDb()
+  resetRedis()
+})
+
+// ── Register ──────────────────────────────────────────────────────────────────
+
+describe('UsersService.register', () => {
+  it('registra un cliente e ritorna accessToken + refreshToken', async () => {
+    const result = await UsersService.register(clientDto)
+
+    expect(result.user).toMatchObject({
+      email: clientDto.email,
+      role: 'client',
+    })
+    expect(result.accessToken).toBeTruthy()
+    expect(result.refreshToken).toBeTruthy()
+    expect(result.artisanProfile).toBeUndefined()
+  })
+
+  it('registra un artigiano e crea il profilo artigiano', async () => {
+    const result = await UsersService.register(artisanDto)
+
+    expect(result.user).toMatchObject({ role: 'artisan' })
+    expect(result.artisanProfile).toBeDefined()
+    expect(result.artisanProfile).toMatchObject({
+      category: 'idraulico',
+    })
+  })
+
+  it("l'artigiano riceve uno stripeAccountId mock", async () => {
+    const result = await UsersService.register(artisanDto)
+    const userId = (result.user as { id: string }).id
+    expect(result.artisanProfile?.stripe_account_id).toBe(`acct_mock_${userId}`)
+  })
+
+  it('lancia 409 se email già registrata', async () => {
+    await UsersService.register(clientDto)
+    await expect(UsersService.register(clientDto)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+  })
+
+  it('lancia 409 per artigiano con stessa email', async () => {
+    await UsersService.register(artisanDto)
+    await expect(UsersService.register(artisanDto)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+  })
+})
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+
+describe('UsersService.login', () => {
+  beforeEach(async () => {
+    await UsersService.register(clientDto)
+  })
+
+  it('login con credenziali corrette ritorna token e user', async () => {
+    const result = await UsersService.login({
+      email:    clientDto.email,
+      password: clientDto.password,
+    })
+
+    expect(result.accessToken).toBeTruthy()
+    expect(result.refreshToken).toBeTruthy()
+    expect(result.user).toMatchObject({ email: clientDto.email })
+    expect((result.user as Record<string, unknown>)['password_hash']).toBeUndefined()
+  })
+
+  it('lancia 401 con password errata', async () => {
+    await expect(
+      UsersService.login({ email: clientDto.email, password: 'Wrong999!' })
+    ).rejects.toMatchObject({ statusCode: 401 })
+  })
+
+  it('lancia 401 con email inesistente', async () => {
+    await expect(
+      UsersService.login({ email: 'ghost@artisan.dev', password: 'Test1234!' })
+    ).rejects.toMatchObject({ statusCode: 401 })
+  })
+})
+
+// ── RefreshToken ──────────────────────────────────────────────────────────────
+
+describe('UsersService.refreshToken', () => {
+  it('emette un nuovo accessToken con un refresh token valido', async () => {
+    const { refreshToken } = await UsersService.register(clientDto)
+    const result = await UsersService.refreshToken(refreshToken)
+
+    expect(result.accessToken).toBeTruthy()
+    expect(result.refreshToken).toBeTruthy()
+    // Il refresh token viene ruotato
+    expect(result.refreshToken).not.toBe(refreshToken)
+  })
+
+  it('lancia 401 con token falso', async () => {
+    await expect(UsersService.refreshToken('fake.token.here')).rejects.toMatchObject({
+      statusCode: 401,
+    })
+  })
+
+  it('lancia 401 dopo logout (token rimosso da Redis)', async () => {
+    const { refreshToken, user } = await UsersService.register(clientDto)
+    await UsersService.logout((user as { id: string }).id)
+    await expect(UsersService.refreshToken(refreshToken)).rejects.toMatchObject({
+      statusCode: 401,
+    })
+  })
+})
+
+// ── GetProfile ────────────────────────────────────────────────────────────────
+
+describe('UsersService.getProfile', () => {
+  it('ritorna il profilo senza password_hash', async () => {
+    const { user } = await UsersService.register(clientDto)
+    const profile = await UsersService.getProfile((user as { id: string }).id)
+
+    expect(profile.email).toBe(clientDto.email)
+    expect((profile as Record<string, unknown>)['password_hash']).toBeUndefined()
+  })
+
+  it('lancia 404 per userId inesistente', async () => {
+    await expect(UsersService.getProfile('ghost_id')).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+})
+
+// ── UpdateProfile ─────────────────────────────────────────────────────────────
+
+describe('UsersService.updateProfile', () => {
+  it('aggiorna nome e telefono del cliente', async () => {
+    const { user } = await UsersService.register(clientDto)
+    const userId = (user as { id: string }).id
+
+    const result = await UsersService.updateProfile(userId, {
+      name:  'Nome Aggiornato',
+      phone: '+39 333 9999999',
+    })
+
+    expect(result.user?.name).toBe('Nome Aggiornato')
+  })
+
+  it('aggiorna il profilo artigiano se role=artisan', async () => {
+    const { user } = await UsersService.register(artisanDto)
+    const userId = (user as { id: string }).id
+
+    const result = await UsersService.updateProfile(userId, {
+      bio:        'Nuova bio aggiornata',
+      hourlyRate: 55,
+    })
+
+    expect(result.artisanProfile).toBeDefined()
+  })
+})
+
+// ── GetArtisanProfile ─────────────────────────────────────────────────────────
+
+describe('UsersService.getArtisanProfile', () => {
+  it('ritorna il profilo artigiano con tutti i campi', async () => {
+    const { user } = await UsersService.register(artisanDto)
+    const userId = (user as { id: string }).id
+
+    const profile = await UsersService.getArtisanProfile(userId)
+
+    expect(profile.category).toBe('idraulico')
+    expect(profile.stripeAccountId).toBe(`acct_mock_${userId}`)
+    expect(profile.rating).toBeDefined()
+    expect(profile.reviewCount).toBeDefined()
+  })
+
+  it('lancia 404 se il client richiede il profilo artigiano', async () => {
+    const { user } = await UsersService.register(clientDto)
+    const userId = (user as { id: string }).id
+
+    await expect(UsersService.getArtisanProfile(userId)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+})
+Type check e poi test:
+
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+Exit code 2
+src/modules/users/users.test.ts(66,35): error TS2339: Property 'stripe_account_id' does not exist on type 'never'.
+The issue is that result.artisanProfile is possibly typed as never because the type system doesn't know when it's present. Let me check the service return type.
+
+In UsersService.register, the return value is:
+
+
+return {
+  user: safeUser(userRow),
+  accessToken,
+  refreshToken,
+  ...(artisanProfile ? { artisanProfile } : {}),
+}
+When we spread a conditional object, TypeScript may narrow the type as never if it can't determine the type. The artisanProfile variable is typed as null | { user_id: string; category: string; stripe_account_id: string }.
+
+The conditional spread creates a union type that TypeScript struggles to infer properly, so I'll just cast result.artisanProfile to the correct type in the test to work around this.
+
+Il type di artisanProfile nel risultato diventa never per via dello spread condizionale. Fix nel test con un cast esplicito:
+
+Edit users.test.ts
+Added 1 line
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Bash Run users test suite
+IN
+npx vitest run src/modules/users/users.test.ts 2>&1
+
+OUT
+Exit code 1
+
+ RUN  v1.6.1 /home/eielmini/Documents/artisan-app/artisan-app/apps/backend
+
+ ❯ src/modules/users/users.test.ts  (17 tests | 13 failed) 515ms
+   ❯ src/modules/users/users.test.ts > UsersService.register > l'artigiano riceve uno stripeAccountId mock
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.register > lancia 409 se email già registrata
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.register > lancia 409 per artigiano con stessa email
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.login > login con credenziali corrette ritorna token e user
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.login > lancia 401 con password errata
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.login > lancia 401 con email inesistente
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.refreshToken > emette un nuovo accessToken con un refresh token valido
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.refreshToken > lancia 401 dopo logout (token rimosso da Redis)
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.getProfile > ritorna il profilo senza password_hash
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna nome e telefono del cliente
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna il profilo artigiano se role=artisan
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.getArtisanProfile > ritorna il profilo artigiano con tutti i campi
+     → Email già registrata
+   ❯ src/modules/users/users.test.ts > UsersService.getArtisanProfile > lancia 404 se il client richiede il profilo artigiano
+     → Email già registrata
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.register > l'artigiano riceve uno stripeAccountId mock
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:64:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.register > lancia 409 se email già registrata
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:71:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.register > lancia 409 per artigiano con stessa email
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:78:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.login > login con credenziali corrette ritorna token e user
+ FAIL  src/modules/users/users.test.ts > UsersService.login > lancia 401 con password errata
+ FAIL  src/modules/users/users.test.ts > UsersService.login > lancia 401 con email inesistente
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:89:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.refreshToken > emette un nuovo accessToken con un refresh token valido
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:121:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.refreshToken > lancia 401 dopo logout (token rimosso da Redis)
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:137:36
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.getProfile > ritorna il profilo senza password_hash
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:149:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna nome e telefono del cliente
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:167:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna il profilo artigiano se role=artisan
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:179:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.getArtisanProfile > ritorna il profilo artigiano con tutti i campi
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:195:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.getArtisanProfile > lancia 404 se il client richiede il profilo artigiano
+AppError: Email già registrata
+ ❯ Object.register src/modules/users/users.service.ts:34:25
+     32|   async register(dto: RegisterDto) {
+     33|     const existing = await UserModel.findByEmail(dto.email)
+     34|     if (existing) throw new AppError(409, 'Email già registrata')
+       |                         ^
+     35| 
+     36|     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
+ ❯ src/modules/users/users.test.ts:207:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { statusCode: 409 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/13]⎯
+
+ Test Files  1 failed (1)
+      Tests  13 failed | 4 passed (17)
+   Start at  17:04:16
+   Duration  1.16s (transform 106ms, setup 0ms, collect 209ms, tests 515ms, environment 0ms, prepare 126ms)
+The issue is clear: resetDb() is not truly clearing the in-memory tables because the mock postgres uses module-level tables that are populated from the seed data (hardcoded in the module). The reset() method in PostgresMock repopulates with the seed users. So when the test tries to register test.client@artisan.dev, the tables contain the seed users from the mock, but test.client@artisan.dev doesn't conflict with them.
+
+Wait, but the error says "Email già registrata" - this means the email test.client@artisan.dev is already in the users table.
+
+So resetDb() isn't actually clearing the database between tests. Looking at the implementation, resetDb() calls PostgresMock.reset(), which restores the seed data back into the module-level tables instead of truly wiping them clean.
+
+The real problem is that tables.users is initially assigned to the USERS constant, and when reset() reassigns it to USERS again, it's pointing to the same mutated array. Any modifications made during a test persist because the seed data itself gets modified, not just the reference.
+
+The solution is to create fresh copies of the seed arrays in reset() using spread syntax, so each reset gets a clean slate instead of reusing the mutated original.
+
+Fixing the reset method... The real issue is that tables.users holds a direct reference to the USERS array, so when the INSERT handler pushes new rows, it mutates the original seed data. The fix is to create shallow copies of the seed arrays during initialization and in the reset method, so mutations stay isolated to the test tables. I'm creating fresh copies of each table on initialization and reset, which works fine since we're only modifying top-level properties rather than mutating nested structures.
+
+Il problema è che tables.users punta alla stessa referenza dell'array USERS nel seed — quando INSERT fa .push(), muta anche USERS. La reset() deve creare copie fresh, non riassegnare la stessa referenza.
+
+Read postgres.mock.ts (lines 87-106)
+Read postgres.mock.ts (lines 256-275)
+Edit postgres.mock.ts
+Added 5 lines
+Edit postgres.mock.ts
+Removed 2 lines
+Bash Run users test suite
+IN
+npx vitest run src/modules/users/users.test.ts 2>&1
+
+OUT
+Exit code 1
+
+ RUN  v1.6.1 /home/eielmini/Documents/artisan-app/artisan-app/apps/backend
+
+ ❯ src/modules/users/users.test.ts  (17 tests | 4 failed) 4177ms
+   ❯ src/modules/users/users.test.ts > UsersService.refreshToken > emette un nuovo accessToken con un refresh token valido
+     → expected 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…' not to be 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…' // Object.is equality
+   ❯ src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna nome e telefono del cliente
+     → expected undefined to be 'Nome Aggiornato' // Object.is equality
+   ❯ src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna il profilo artigiano se role=artisan
+     → expected undefined not to be undefined
+   ❯ src/modules/users/users.test.ts > UsersService.getArtisanProfile > ritorna il profilo artigiano con tutti i campi
+     → expected undefined not to be undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.refreshToken > emette un nuovo accessToken con un refresh token valido
+AssertionError: expected 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…' not to be 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…' // Object.is equality
+ ❯ src/modules/users/users.test.ts:127:37
+    125|     expect(result.refreshToken).toBeTruthy()
+    126|     // Il refresh token viene ruotato
+    127|     expect(result.refreshToken).not.toBe(refreshToken)
+       |                                     ^
+    128|   })
+    129| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna nome e telefono del cliente
+AssertionError: expected undefined to be 'Nome Aggiornato' // Object.is equality
+
+- Expected: 
+"Nome Aggiornato"
+
++ Received: 
+undefined
+
+ ❯ src/modules/users/users.test.ts:175:31
+    173|     })
+    174| 
+    175|     expect(result.user?.name).toBe('Nome Aggiornato')
+       |                               ^
+    176|   })
+    177| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.updateProfile > aggiorna il profilo artigiano se role=artisan
+AssertionError: expected undefined not to be undefined
+ ❯ src/modules/users/users.test.ts:187:35
+    185|     })
+    186| 
+    187|     expect(result.artisanProfile).toBeDefined()
+       |                                   ^
+    188|   })
+    189| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/modules/users/users.test.ts > UsersService.getArtisanProfile > ritorna il profilo artigiano con tutti i campi
+AssertionError: expected undefined not to be undefined
+ ❯ src/modules/users/users.test.ts:202:28
+    200|     expect(profile.category).toBe('idraulico')
+    201|     expect(profile.stripeAccountId).toBe(`acct_mock_${userId}`)
+    202|     expect(profile.rating).toBeDefined()
+       |                            ^
+    203|     expect(profile.reviewCount).toBeDefined()
+    204|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 13 passed (17)
+   Start at  17:05:02
+   Duration  4.79s (transform 124ms, setup 1ms, collect 214ms, tests 4.18s, environment 0ms, prepare 63ms)
+Good progress! Now we have 4 failures instead of 13. Let me analyze:
+
+refreshToken rotation: The test expects result.refreshToken !== refreshToken. The issue is that JWT tokens generated within the same second have the same iat and payload, so they're identical. Fix: add a jti (JWT ID) or iat microsecond to ensure rotation. Actually, the simplest fix is to not test for exact token inequality (which depends on timing) and instead verify the token is valid and the old one is invalidated. Or add a jti to the JWT payload.
+
+updateProfile: The UPDATE mock isn't handling the RETURNING clause, so it returns empty rows and updatedUser ends up null. I need to fix the mock parser to actually return the updated row data.
+
+getArtisanProfile: The findArtisanProfile query is missing the rating field in its result.
+
+The issue is that the INSERT statement for artisan profiles only specifies 8 columns and doesn't populate rating or review_count, so those fields are null in the database. The SELECT query should return all fields, but since they were never initialized, they're coming back undefined.
+
+The cleanest approach is to handle these nullable fields in the service layer by defaulting them to 0 when they're missing. I also need to address the other test failures: the refreshToken rotation logic, the missing jti claim for token invalidation, and ensuring the old token is properly rejected after rotation. rotation to work. The issue is timing - two JWTs signed within 1 second with same payload are identical. Fix: add a counter or use Date.now() in the payload as a iat override, or use jti.
+
+Actually, JWT iat is in seconds, so two tokens signed within the same second will be identical. The cleanest fix is to either:
+a) Add a jti: crypto.randomUUID() to the payload
+b) Fix the test to just check the new refresh token is stored and old is rejected
+
+I'll go with option (b) - fix the test assertion to not rely on token string inequality.
+
+UPDATE mock returning: The current UPDATE mock returns { rows: [], rowCount: count }. Need to return the updated row. Let me fix the UPDATE parser to find and return the updated row after modification.
+
+artisan_profiles defaults: I also need to make sure the INSERT includes default values for rating: 0 and review_count: 0 in the mock.
+
+So I'm tackling three things: adjusting the refresh token test to validate behavior rather than token uniqueness, fixing the UPDATE mock to return the modified row, and ensuring the artisan_profiles table gets initialized with the right default values.
+
+Tre problemi da risolvere:
+
+JWT rotation: due token firmati nello stesso secondo sono identici → aggiungo jti
+Mock UPDATE non supporta RETURNING → lo aggiunto
+artisan_profiles mancano i default di rating/review_count
+Read postgres.mock.ts (lines 211-260)
+Edit postgres.mock.ts
+Added 20 lines
+Ora sistemo l'INSERT per artisan_profiles aggiungendo i default per rating/review_count, e aggiungo jti ai JWT per la rotation:
+
+Edit users.model.ts
+Added 1 line
+Aggiungo jti random al JWT per garantire la rotation:
+
+Edit users.service.ts
+Added 1 line
+Edit users.service.ts
+Modified
+Il register nella transaction usa q<{ id: string }> per artisan_profiles ma ora inserisce rating/review_count — aggiorno anche lì per non dipendere solo da RETURNING user_id, category, stripe_account_id:
+
+Read users.service.ts (lines 43-62)
+Edit users.service.ts
+Added 2 lines
+Bash TypeScript type check
+IN
+npx tsc --noEmit 2>&1 && echo "OK"
+
+OUT
+OK
+Bash Run users test suite
+IN
+npx vitest run src/modules/users/users.test.ts 2>&1
+
+OUT
+ RUN  v1.6.1 /home/eielmini/Documents/artisan-app/artisan-app/apps/backend
+
+ ✓ src/modules/users/users.test.ts  (17 tests) 4178ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  17:06:17
+   Duration  4.75s (transform 102ms, setup 0ms, collect 189ms, tests 4.18s, environment 0ms, prepare 57ms)
+17/17 passati. Verifica finale che il server parta ancora pulito:
+
+Bash Boot server in mock mode — sanity check
+IN
+timeout 5 npx tsx src/server.ts 2>&1 || true
+
+OUT
+[2026-04-22T15:06:27.774Z] [32minfo[39m: BullMQ queues inizializzate [MOCK] 
+[2026-04-22T15:06:28.038Z] [32minfo[39m: PostgreSQL [MOCK] connesso 
+[2026-04-22T15:06:28.264Z] [32minfo[39m: MongoDB [MOCK] connesso (mongodb-memory-server) 
+[2026-04-22T15:06:28.264Z] [32minfo[39m: Redis [MOCK] connesso 
+[2026-04-22T15:06:28.268Z] [32minfo[39m: Socket.IO inizializzato 
+[2026-04-22T15:06:28.268Z] [32minfo[39m: Server running on port 3000 [development]
+17/17 test passati. Server verde.
+
+Riepilogo di ogni file modificato o creato:
+
+File	Cosa c'è dentro
+users.schema.ts	registerSchema (con refine artisan), loginSchema, updateProfileSchema; tutti i DTO
+users.model.ts	UserRow + ArtisanProfileRow tipizzati; findByEmail/findById/create/update/createArtisanProfile/findArtisanProfile/updateArtisanProfile
+users.service.ts	register (transaction per artisan + acct_mock_<userId>), login, refreshToken (rotation con jti), logout, getProfile, updateProfile, getArtisanProfile
+users.controller.ts	httpOnly cookie su login/register/refresh; clearCookie su logout; tutti gli handler delegano al service
+users.routes.ts	loginLimiter (5 req/15min per IP, skip in test); tutte le rotte con middleware corretti
+users.test.ts	17 test su register/login/refresh/logout/getProfile/updateProfile/getArtisanProfile — zero dipendenze esterne
+Fix collaterali al mock:
+
+postgres.mock.ts: reset() crea ora copie fresh (risolve leak tra test); UPDATE supporta RETURNING
+postgres.ts: resetDb() esportato per i test
+redis.ts: resetRedis() esportato per i test
+app.ts: aggiunto cookie-parser
