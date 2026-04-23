@@ -1,0 +1,51 @@
+{
+  "name": "@artisan/backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest",
+    "migrate": "tsx src/shared/db/migrate.ts",
+    "seed": "tsx src/shared/db/seed.ts"
+  },
+  "dependencies": {
+    "@artisan/shared-types": "*",
+    "@aws-sdk/client-s3": "^3.575.0",
+    "@types/cookie-parser": "^1.4.10",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.7.0",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.19.0",
+    "express-rate-limit": "^7.2.0",
+    "firebase-admin": "^12.1.0",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb-memory-server": "^11.0.1",
+    "mongoose": "^8.3.0",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.14.0",
+    "pg": "^8.11.0",
+    "socket.io": "^4.7.5",
+    "stripe": "^15.7.0",
+    "winston": "^3.13.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.0",
+    "@types/pdfkit": "^0.17.6",
+    "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.0",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  }
+}
