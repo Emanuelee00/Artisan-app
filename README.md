@@ -20,15 +20,22 @@ Marketplace tipo Uber per artigiani. Monorepo Turborepo.
 
 ---
 
-## Avvio rapido (senza .env)
+## Avvio completo — passo per passo
 
-L'app gira al 100% in **mock mode** senza nessuna variabile d'ambiente.
-Ogni servizio esterno ha un mock in-memory trasparente.
+### 1. Installa le dipendenze (solo backend, una volta sola)
 
 ```bash
-cd apps/backend
-npm install
-npm run dev          # server su :3000 con hot-reload
+cd /home/eielmini/Documents/artisan/Artisan-app
+npm install --workspace=packages/shared-types --workspace=apps/backend
+```
+
+> Il monorepo include anche Expo (mobile) e Next.js (admin) che richiedono 1–2 GB.
+> Con poco spazio su disco, installa solo il backend che è sufficiente per tutto.
+
+### 2. Avvia il server backend
+
+```bash
+npm run dev:mock
 ```
 
 Output atteso:
@@ -37,34 +44,114 @@ BullMQ queues inizializzate [MOCK]
 PostgreSQL [MOCK] connesso
 MongoDB [MOCK] connesso (mongodb-memory-server)
 Redis [MOCK] connesso
-Server running on port 3000 [development]
+Server running on port 3000 [test]
 ```
 
-### Popolare il DB con dati fake
+### 3. Popola il database con i dati di test
 
 ```bash
-npm run seed
+curl -X POST http://localhost:3000/mock/seed
 ```
 
-Stampa le credenziali di test a fine esecuzione:
+Credenziali create:
 ```
-[admin   ] admin@artisan.dev       password: Admin1234!
-[client  ] cliente@artisan.dev     password: Cliente123!
-[client  ] mario@artisan.dev       password: Mario1234!
-[artisan ] luigi@artisan.dev       password: Luigi1234!
-[artisan ] sara@artisan.dev        password: Sara12345!
+mario@test.it   / password123  → client
+luigi@test.it   / password123  → artigiano (idraulico, Milano)
+admin@test.it   / password123  → admin
+```
+
+### 4. Apri l'interfaccia web
+
+```bash
+xdg-open /home/eielmini/Documents/artisan/Artisan-app/test-app.html
+# oppure trascina il file test-app.html nel browser
+```
+
+Nel campo **Server URL** della pagina di login:
+- **Da questo PC** → `http://localhost:3000` (valore già precompilato)
+- **Da telefono (stesso WiFi)** → `http://10.170.145.137:3000`
+
+### 5. Resetta tutto (opzionale)
+
+```bash
+curl -X POST http://localhost:3000/mock/reset
+# resetta il DB in-memory e ricrea automaticamente gli utenti di test
+```
+
+---
+
+## Cosa puoi fare nell'interfaccia web
+
+| Sezione | Funzionalità |
+|---|---|
+| **Dashboard** | KPI: lavori totali, in corso, completati, guadagni artigiano |
+| **Lavori** | Crea lavori (client), accetta/avvia/completa (artigiano), cancella |
+| **Pagamenti** | Storico pagamenti con fee piattaforma e payout artigiano |
+| **Chat** | Messaggi per ogni lavoro con artigiano assegnato |
+| **Mock State** | Vedi il DB in-memory, esegui seed/reset con un click |
+
+---
+
+## Avvio rapido (3 comandi, zero configurazione)
+
+> Alternativa compatta alla sezione sopra, per chi ha già installato.
+
+```bash
+npm run dev:mock                         # avvia backend
+curl -X POST localhost:3000/mock/seed    # popola DB
+# apri test-app.html nel browser
+```
+
+Output atteso dopo `dev:mock`:
+```
+BullMQ queues inizializzate [MOCK]
+PostgreSQL [MOCK] connesso
+MongoDB [MOCK] connesso (mongodb-memory-server)
+Redis [MOCK] connesso
+Server running on port 3000 [test]
+```
+
+Credenziali di test dopo `npm run seed`:
+```
+[admin  ] admin@test.it   password: password123
+[client ] mario@test.it   password: password123
+[artisan] luigi@test.it   password: password123
+```
+
+### Dati pre-caricati dal seed
+
+| Risorsa | Dettaglio |
+|---|---|
+| Job 1 | Completato — mario → luigi (idraulico, Milano) |
+| Job 2 | In lavorazione (aperto) — mario → luigi |
+| Job 3 | Accettato (aperto) — mario → luigi |
+| Pagamento | Completato per Job 1, EUR 75.00 (fee 15%) |
+| Chat | 3 messaggi nel Job 1 |
+
+### Debug in-memory con il mock server
+
+Con il server avviato, interroga lo stato interno da Postman/Bruno/curl:
+
+```bash
+# Vedi tutto lo stato in memoria
+curl http://localhost:3000/mock/state | jq
+
+# Resetta tutti i mock allo stato iniziale
+curl -X POST http://localhost:3000/mock/reset
+
+# Simula un webhook Stripe (pagamento riuscito)
+curl -X POST http://localhost:3000/mock/stripe-event \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"payment_intent.succeeded","object":{"id":"pi_mock_001"}}'
 ```
 
 ### Eseguire i test
 
 ```bash
-npm test                                                    # tutti (141 test)
-npx vitest run src/modules/users/users.test.ts              # solo users (17)
-npx vitest run src/modules/jobs/jobs.test.ts                # solo jobs (28)
-npx vitest run src/modules/payments/payments.test.ts        # solo payments (20)
-npx vitest run src/modules/chat/chat.test.ts                # solo chat (20)
-npx vitest run src/modules/tracking/tracking.test.ts        # solo tracking (25)
-npx vitest run src/modules/invoices/invoices.test.ts        # solo invoices (31)
+npm run test:all                                             # tutti i moduli
+cd apps/backend && npx vitest run src/modules/users/users.test.ts
+cd apps/backend && npx vitest run src/modules/jobs/jobs.test.ts
+cd apps/backend && npx vitest run src/modules/payments/payments.test.ts
 ```
 
 ### Applicare le migration (DB reale)
@@ -72,6 +159,166 @@ npx vitest run src/modules/invoices/invoices.test.ts        # solo invoices (31)
 ```bash
 DATABASE_URL=postgresql://... npm run migrate
 ```
+
+---
+
+## Curl quick-reference
+
+Sostituisci `<token>` con l'access token ottenuto dal login.
+
+### Auth
+
+```bash
+# Registrazione
+curl -X POST http://localhost:3000/api/v1/users/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"test@example.com","password":"Test1234!","name":"Test User","phone":"+39 333 0000000","role":"client"}'
+
+# Login
+curl -X POST http://localhost:3000/api/v1/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"mario@test.it","password":"password123"}'
+
+# Profilo autenticato
+curl http://localhost:3000/api/v1/users/me \
+  -H 'Authorization: Bearer <token>'
+```
+
+### Jobs
+
+```bash
+# Lista jobs
+curl http://localhost:3000/api/v1/jobs \
+  -H 'Authorization: Bearer <token>'
+
+# Crea job
+curl -X POST http://localhost:3000/api/v1/jobs \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Perdita rubinetto","description":"Urgente.","category":"idraulico","address":"Via Roma 1, Milano","lat":45.46,"lng":9.19,"estimatedPrice":80}'
+
+# Artigiani vicini (matching)
+curl http://localhost:3000/api/v1/jobs/<jobId>/matches \
+  -H 'Authorization: Bearer <token>'
+
+# Completa job (artigiano)
+curl -X PATCH http://localhost:3000/api/v1/jobs/<jobId>/complete \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"finalPrice":75}'
+```
+
+### Payments
+
+```bash
+# Crea payment intent
+curl -X POST http://localhost:3000/api/v1/payments/intent \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"jobId":"<jobId>"}'
+
+# Storico pagamenti
+curl http://localhost:3000/api/v1/payments/history \
+  -H 'Authorization: Bearer <token>'
+```
+
+### Chat
+
+```bash
+# Messaggi di un job
+curl http://localhost:3000/api/v1/chat/<jobId>/messages \
+  -H 'Authorization: Bearer <token>'
+
+# Messaggi non letti
+curl http://localhost:3000/api/v1/chat/unread \
+  -H 'Authorization: Bearer <token>'
+```
+
+### TrustScore — Recensioni (`/api/v1/reviews`)
+
+Sistema di reputazione degli artigiani. I clienti possono recensire un lavoro completato con 1-5 stelle e un commento. Il rating medio dell'artigiano viene aggiornato automaticamente in PostgreSQL.
+
+| Metodo | Path | Auth | Ruolo | Note |
+|---|---|---|---|---|
+| POST | `/` | ✓ | client | Recensisce un job completato (una sola volta per job) |
+| GET | `/artisan/:id` | ✓ | tutti | Lista paginata recensioni di un artigiano (`?page=1&limit=20`) |
+| GET | `/artisan/:id/stats` | ✓ | tutti | Media, conteggio e distribuzione stelle (1-5) |
+| GET | `/my` | ✓ | client | Recensioni lasciate dal cliente autenticato |
+
+```bash
+# Lascia una recensione (job deve essere completato)
+curl -X POST http://localhost:3000/api/v1/reviews \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"jobId":"<jobId>","rating":5,"comment":"Puntuale e preciso, ottimo lavoro!"}'
+
+# Recensioni di un artigiano
+curl http://localhost:3000/api/v1/reviews/artisan/<artisanId> \
+  -H 'Authorization: Bearer <token>'
+
+# Statistiche rating
+curl http://localhost:3000/api/v1/reviews/artisan/<artisanId>/stats \
+  -H 'Authorization: Bearer <token>'
+# → { "avg": 4.8, "count": 34, "distribution": { "5": 28, "4": 4, "3": 2, ... } }
+```
+
+**Regole di business:**
+- Solo il cliente che ha commissionato il lavoro può recensire
+- Il job deve essere in stato `completed`
+- Una sola recensione per job (duplicati → 409)
+- Dopo ogni recensione, `rating` e `review_count` dell'artigiano vengono ricalcolati in PostgreSQL
+
+---
+
+## Come aggiungere un nuovo modulo
+
+Checklist da seguire per ogni nuovo dominio (es. `reviews`):
+
+- [ ] **1. Tipi condivisi** — aggiungi l'interfaccia in `packages/shared-types/src/index.ts` ed esportala
+- [ ] **2. Schema Zod** — crea `apps/backend/src/modules/reviews/reviews.schema.ts` con i DTO di input validati
+- [ ] **3. Model** — crea `reviews.model.ts` con le query tipizzate verso Postgres o Mongoose (dipende dal dominio)
+- [ ] **4. Service + Controller + Routes** — business logic pura nel service, handler Express nel controller, `Router` nelle routes
+- [ ] **5. Registra il router** — aggiungi una riga in `apps/backend/src/gateway/router.ts`:
+  ```typescript
+  router.use('/reviews', reviewsRouter)
+  ```
+
+Regole da rispettare:
+- Nessuna dipendenza circolare tra moduli
+- Ogni file esterno (Stripe, Redis…) acceduto tramite il config con pattern mock
+- Almeno un file `.test.ts` con i casi base (happy path + errore)
+
+---
+
+## Da mock a produzione
+
+Checklist per passare dall'ambiente mock a servizi reali:
+
+### Database
+- [ ] Crea un'istanza PostgreSQL e copia la stringa di connessione in `DATABASE_URL`
+- [ ] Crea un cluster MongoDB Atlas e copia l'URI in `MONGO_URI`
+- [ ] Provisiona Redis (Upstash, Redis Cloud o self-hosted) e metti l'URL in `REDIS_URL`
+- [ ] Esegui le migration: `DATABASE_URL=... npm run migrate`
+- [ ] Esegui il seed: `DATABASE_URL=... MONGO_URI=... npm run seed`
+
+### Stripe
+- [ ] Crea account Stripe e copia la secret key in `STRIPE_SECRET_KEY`
+- [ ] Configura il webhook su dashboard.stripe.com → Developers → Webhooks → endpoint: `POST /api/v1/payments/webhook`
+- [ ] Copia il webhook signing secret in `STRIPE_WEBHOOK_SECRET`
+
+### Firebase (push notifications)
+- [ ] Crea progetto Firebase → Project settings → Service accounts → genera chiave JSON
+- [ ] Imposta `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`
+
+### Auth & sicurezza
+- [ ] Genera un `JWT_SECRET` casuale (min 32 caratteri): `openssl rand -hex 32`
+- [ ] Imposta `NODE_ENV=production`
+- [ ] Imposta `FRONTEND_URL` con il dominio reale dell'app mobile/web
+
+### Facoltativo
+- [ ] Twilio (SMS): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
+- [ ] AWS S3 (PDF fatture): `S3_BUCKET`, `S3_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- [ ] Google Maps (geocoding avanzato): `GOOGLE_MAPS_API_KEY`
 
 ---
 

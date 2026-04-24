@@ -1,6 +1,15 @@
 import { Worker } from 'bullmq'
 import { logger } from '../../logger'
-import { isMock } from '../../../config/env'
+import { env, isMock } from '../../../config/env'
+
+function parseRedisUrl(url: string): { host: string; port: number } {
+  try {
+    const u = new URL(url)
+    return { host: u.hostname, port: Number(u.port) || 6379 }
+  } catch {
+    return { host: 'localhost', port: 6379 }
+  }
+}
 
 // Only start real Worker when Redis is available (not in mock mode)
 if (!isMock('REDIS_URL')) {
@@ -12,6 +21,6 @@ if (!isMock('REDIS_URL')) {
     await InvoicesService.generateAndSavePdf(invoiceId)
     logger.info(`[Worker] PDF fattura ${invoiceId} generato`)
   }, {
-    connection: { host: 'localhost', port: 6379 },
+    connection: parseRedisUrl(env.REDIS_URL),
   })
 }

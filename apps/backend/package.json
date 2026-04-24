@@ -2,12 +2,12 @@
   "name": "@artisan/backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "node --env-file=../../.env.test ../../node_modules/tsx/dist/cli.mjs watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest",
     "migrate": "tsx src/shared/db/migrate.ts",
-    "seed": "tsx src/shared/db/seed.ts"
+    "seed": "node --env-file=../../.env.test ../../node_modules/tsx/dist/cli.mjs src/shared/db/seed.ts"
   },
   "dependencies": {
     "@artisan/shared-types": "*",

@@ -3,12 +3,16 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev":   "turbo run dev",
-    "build": "turbo run build",
-    "lint":  "turbo run lint",
-    "test":  "turbo run test"
+    "dev":      "turbo run dev",
+    "dev:mock": "npm run dev --workspace=apps/backend",
+    "build":    "turbo run build",
+    "lint":     "turbo run lint",
+    "test":     "turbo run test",
+    "test:all": "turbo run test",
+    "seed":     "node --env-file=.env.test node_modules/tsx/dist/cli.mjs apps/backend/src/shared/db/seed.ts"
   },
   "devDependencies": {
+    "dotenv-cli": "^7.4.2",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   }

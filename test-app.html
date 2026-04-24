@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artisan App — Test UI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+
+    /* ── Layout ── */
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+    header { background: #1d4ed8; color: white; padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    header h1 { font-size: 1.05rem; font-weight: 700; flex-shrink: 0; }
+    #quick-switcher { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+    #header-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+    #user-badge { font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+    #lang-btn { background: none; border: none; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+    #lang-btn:hover { background: rgba(255,255,255,0.15); }
+    .btn-sw { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 0.78rem; white-space: nowrap; }
+    .btn-sw:hover { background: rgba(255,255,255,0.28); }
+    nav { background: white; border-bottom: 1px solid #e5e7eb; display: flex; gap: 0; overflow-x: auto; }
+    nav button { padding: 12px 20px; border: none; background: none; cursor: pointer; font-size: 0.9rem; color: #6b7280; white-space: nowrap; }
+    nav button.active { color: #1d4ed8; border-bottom: 2px solid #1d4ed8; font-weight: 600; }
+    main { padding: 24px; max-width: 960px; width: 100%; margin: 0 auto; flex: 1; }
+
+    /* ── Card ── */
+    .card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 1rem; margin-bottom: 14px; color: #374151; }
+
+    /* ── Form ── */
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 0.95rem; }
+    input:focus { outline: 2px solid #1d4ed8; border-color: transparent; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 7px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .btn-primary { background: #1d4ed8; color: white; }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-danger  { background: #dc2626; color: white; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th { background: #f9fafb; text-align: left; padding: 10px 12px; color: #6b7280; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; }
+    tr:hover td { background: #f9fafb; }
+
+    /* ── Badge ── */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-gray   { background: #f3f4f6; color: #374151; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+
+    /* ── Alert / Error ── */
+    .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+    .alert-err  { background: #fee2e2; color: #991b1b; }
+    .alert-ok   { background: #dcfce7; color: #166534; }
+    .alert-info { background: #dbeafe; color: #1e40af; }
+
+    /* ── Stats row ── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+    .stat .num { font-size: 2rem; font-weight: 700; color: #1d4ed8; }
+    .stat .lbl { font-size: 0.78rem; color: #6b7280; margin-top: 2px; }
+
+    /* ── Login screen ── */
+    #login-screen { max-width: 380px; margin: 60px auto; }
+    #login-screen .card { padding: 32px; }
+
+    /* ── Chat ── */
+    .msg { margin-bottom: 10px; display: flex; flex-direction: column; }
+    .msg.mine { align-items: flex-end; }
+    .msg .bubble { padding: 8px 14px; border-radius: 16px; max-width: 75%; font-size: 0.9rem; line-height: 1.4; }
+    .msg.mine .bubble { background: #1d4ed8; color: white; border-bottom-right-radius: 4px; }
+    .msg.other .bubble { background: #e5e7eb; border-bottom-left-radius: 4px; }
+    .msg .ts { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; }
+
+    /* ── Misc ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .empty { text-align: center; color: #9ca3af; padding: 40px; font-size: 0.9rem; }
+    .loader { text-align: center; padding: 30px; color: #6b7280; }
+    .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    pre { background: #f3f4f6; border-radius: 6px; padding: 12px; font-size: 0.78rem; overflow-x: auto; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Login -->
+  <div id="login-screen">
+    <div class="card">
+      <h2 style="margin-bottom:20px;text-align:center;font-size:1.3rem">Artisan App</h2>
+      <div id="login-alert"></div>
+      <div class="field"><label>Server URL</label><input id="server-url" value="http://localhost:3000"></div>
+      <div class="field"><label>Email</label><input id="email" value="mario@test.it" type="email"></div>
+      <div class="field"><label>Password</label><input id="password" value="password123" type="password"></div>
+      <button class="btn btn-primary" style="width:100%" onclick="login()">Accedi</button>
+      <p style="margin-top:14px;font-size:0.78rem;color:#6b7280;text-align:center">
+        Da telefono: sostituisci localhost con l'IP del PC (es. 192.168.1.X)
+      </p>
+    </div>
+  </div>
+
+  <!-- App shell (hidden until logged in) -->
+  <div id="main-shell" style="display:none;flex-direction:column;flex:1">
+    <header>
+      <h1>🔧 Artisan</h1>
+      <div id="quick-switcher">
+        <button class="btn-sw" onclick="quickLogin('mario@test.it')"  title="Mario — client">👤 Mario</button>
+        <button class="btn-sw" onclick="quickLogin('luigi@test.it')"  title="Luigi — artigiano">🔨 Luigi</button>
+        <button class="btn-sw" onclick="quickLogin('admin@test.it')"  title="Admin">⚙️ Admin</button>
+      </div>
+      <div id="header-right">
+        <button id="lang-btn" onclick="toggleLang()" title="Cambia lingua / Change language">🇮🇹</button>
+        <div id="user-badge">—</div>
+      </div>
+    </header>
+    <nav id="nav"></nav>
+    <main id="content"></main>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let BASE = 'http://localhost:3000'
+let token = ''
+let currentUser = null
+let LANG = 'it'
+let _activeTab = 'dashboard'
+
+// ── Translations ───────────────────────────────────────────────────────────────
+const T = {
+  it: {
+    tab_dashboard: 'Dashboard', tab_jobs: 'Lavori', tab_payments: 'Pagamenti',
+    tab_chat: 'Chat', tab_mock: 'Mock State',
+    logout: 'Esci', loading: 'Caricamento...',
+    totalJobs: 'Lavori totali', pending: 'In attesa', inProgress: 'In corso',
+    completed: 'Completati', earnings: 'Guadagni artigiano', paymentsCount: 'Pagamenti',
+    recentJobs: 'Ultimi lavori', title: 'Titolo', category: 'Categoria',
+    address: 'Indirizzo', price: 'Prezzo', status: 'Stato', actions: 'Azioni', date: 'Data',
+    newJob: '+ Nuovo lavoro', noJobs: 'Nessun lavoro',
+    accept: 'Accetta', start: 'Avvia', complete: 'Completa', cancel: 'Cancella', confirm: 'Conferma',
+    createJob: 'Crea lavoro', createJobTitle: 'Nuovo lavoro',
+    jobTitle: 'Titolo', jobCat: 'Categoria', jobDesc: 'Descrizione', jobAddr: 'Indirizzo',
+    estimatedPrice: 'Prezzo stimato (€)', finalPrice: 'Prezzo finale (€)',
+    noPayments: 'Nessun pagamento', jobCol: 'Job', amount: 'Importo',
+    platformFee: 'Fee piattaforma', artisanPayout: 'Payout artigiano',
+    artisanEarnings: 'Guadagni totali artigiano',
+    noChatAvail: 'Nessuna chat disponibile (i lavori devono avere un artigiano assegnato)',
+    noMessages: 'Nessun messaggio', sendBtn: 'Invia', msgPlaceholder: 'Scrivi un messaggio...',
+    mockTitle: 'Mock State', seedBtn: 'Seed dati test', resetBtn: 'Reset tutto',
+    seedConfirm: 'Resettare tutto? I dati di test verranno ricreati automaticamente.',
+    usersTitle: 'Utenti', jobsTitle: 'Lavori', paymentsTitle: 'Pagamenti',
+    email: 'Email', name: 'Nome', role: 'Ruolo',
+    reloading: 'Ricarico...', description: 'Descrizione',
+  },
+  en: {
+    tab_dashboard: 'Dashboard', tab_jobs: 'Jobs', tab_payments: 'Payments',
+    tab_chat: 'Chat', tab_mock: 'Mock State',
+    logout: 'Logout', loading: 'Loading...',
+    totalJobs: 'Total Jobs', pending: 'Pending', inProgress: 'In Progress',
+    completed: 'Completed', earnings: 'Artisan Earnings', paymentsCount: 'Payments',
+    recentJobs: 'Recent Jobs', title: 'Title', category: 'Category',
+    address: 'Address', price: 'Price', status: 'Status', actions: 'Actions', date: 'Date',
+    newJob: '+ New Job', noJobs: 'No jobs',
+    accept: 'Accept', start: 'Start', complete: 'Complete', cancel: 'Cancel', confirm: 'Confirm',
+    createJob: 'Create job', createJobTitle: 'New job',
+    jobTitle: 'Title', jobCat: 'Category', jobDesc: 'Description', jobAddr: 'Address',
+    estimatedPrice: 'Estimated price (€)', finalPrice: 'Final price (€)',
+    noPayments: 'No payments', jobCol: 'Job', amount: 'Amount',
+    platformFee: 'Platform fee', artisanPayout: 'Artisan payout',
+    artisanEarnings: 'Total artisan earnings',
+    noChatAvail: 'No chats available (jobs must have an assigned artisan)',
+    noMessages: 'No messages', sendBtn: 'Send', msgPlaceholder: 'Type a message...',
+    mockTitle: 'Mock State', seedBtn: 'Seed test data', resetBtn: 'Reset all',
+    seedConfirm: 'Reset everything? Test data will be recreated automatically.',
+    usersTitle: 'Users', jobsTitle: 'Jobs', paymentsTitle: 'Payments',
+    email: 'Email', name: 'Name', role: 'Role',
+    reloading: 'Reloading...', description: 'Description',
+  },
+}
+
+function t(key) { return (T[LANG] && T[LANG][key]) || key }
+
+// ── API ────────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const res = await fetch(BASE + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || data.message || res.statusText)
+  return data
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+async function login() {
+  BASE = document.getElementById('server-url').value.replace(/\/$/, '')
+  const email = document.getElementById('email').value
+  const password = document.getElementById('password').value
+  const alertEl = document.getElementById('login-alert')
+
+  try {
+    const data = await api('POST', '/api/v1/users/login', { email, password })
+    token = data.accessToken
+    currentUser = data.user
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('main-shell').style.display = 'flex'
+    document.getElementById('user-badge').textContent = currentUser.name + ' · ' + currentUser.role
+    buildNav()
+    showTab('dashboard')
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+function logout() {
+  token = ''
+  currentUser = null
+  document.getElementById('login-screen').style.display = 'block'
+  document.getElementById('main-shell').style.display = 'none'
+}
+
+async function quickLogin(email) {
+  try {
+    const data = await api('POST', '/api/v1/users/login', { email, password: 'password123' })
+    token = data.accessToken
+    currentUser = data.user
+    document.getElementById('user-badge').textContent = currentUser.name + ' · ' + currentUser.role
+    buildNav()
+    showTab(_activeTab || 'dashboard')
+  } catch(e) { alert('Login failed: ' + e.message) }
+}
+
+function toggleLang() {
+  LANG = LANG === 'it' ? 'en' : 'it'
+  document.getElementById('lang-btn').textContent = LANG === 'it' ? '🇮🇹' : '🇬🇧'
+  document.querySelector('html').lang = LANG
+  buildNav()
+  if (_activeTab) showTab(_activeTab)
+}
+
+// ── Nav ────────────────────────────────────────────────────────────────────────
+const TABS = [
+  { id: 'dashboard', key: 'tab_dashboard' },
+  { id: 'jobs',      key: 'tab_jobs'      },
+  { id: 'payments',  key: 'tab_payments'  },
+  { id: 'chat',      key: 'tab_chat'      },
+  { id: 'mock',      key: 'tab_mock'      },
+]
+
+function buildNav() {
+  const nav = document.getElementById('nav')
+  nav.innerHTML = TABS.map(tab =>
+    `<button id="tab-${tab.id}" onclick="showTab('${tab.id}')">${t(tab.key)}</button>`
+  ).join('') + `<button onclick="logout()" style="margin-left:auto;color:#dc2626">${t('logout')}</button>`
+  const active = document.getElementById('tab-' + _activeTab)
+  if (active) active.classList.add('active')
+}
+
+function showTab(id) {
+  _activeTab = id
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
+  const btn = document.getElementById('tab-' + id)
+  if (btn) btn.classList.add('active')
+  const el = document.getElementById('content')
+  el.innerHTML = `<div class="loader">${t('loading')}</div>`
+  RENDERERS[id]()
+}
+
+// ── Badge helpers ──────────────────────────────────────────────────────────────
+function statusBadge(s) {
+  const map = { pending:'gray', accepted:'blue', in_progress:'yellow', completed:'green', cancelled:'red', failed:'red' }
+  return `<span class="badge badge-${map[s]||'gray'}">${s}</span>`
+}
+function roleBadge(r) {
+  return `<span class="badge badge-${r==='admin'?'red':r==='artisan'?'blue':'gray'}">${r}</span>`
+}
+function eur(cents) { return '€' + (cents / 100).toFixed(2) }
+function dt(s) { return s ? new Date(s).toLocaleDateString(LANG === 'it' ? 'it-IT' : 'en-GB') : '—' }
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function renderDashboard() {
+  try {
+    const [jobs, payments] = await Promise.all([
+      api('GET', '/api/v1/jobs'),
+      api('GET', '/api/v1/payments/'),
+    ])
+    const byStatus = jobs.reduce((a, j) => { a[j.status] = (a[j.status]||0)+1; return a }, {})
+    const totalEarned = payments.filter(p=>p.status==='completed').reduce((s,p)=>s+p.artisan_payout,0)
+
+    document.getElementById('content').innerHTML = `
+      <div class="section-header"><h2>${t('tab_dashboard')}</h2></div>
+      <div class="stats">
+        <div class="stat"><div class="num">${jobs.length}</div><div class="lbl">${t('totalJobs')}</div></div>
+        <div class="stat"><div class="num">${byStatus.pending||0}</div><div class="lbl">${t('pending')}</div></div>
+        <div class="stat"><div class="num">${byStatus.in_progress||0}</div><div class="lbl">${t('inProgress')}</div></div>
+        <div class="stat"><div class="num">${byStatus.completed||0}</div><div class="lbl">${t('completed')}</div></div>
+        <div class="stat"><div class="num">${eur(totalEarned)}</div><div class="lbl">${t('earnings')}</div></div>
+        <div class="stat"><div class="num">${payments.length}</div><div class="lbl">${t('paymentsCount')}</div></div>
+      </div>
+      <div class="card">
+        <h2>${t('recentJobs')}</h2>
+        <table>
+          <thead><tr><th>${t('title')}</th><th>${t('category')}</th><th>${t('status')}</th><th>${t('date')}</th></tr></thead>
+          <tbody>${jobs.slice(0,5).map(j=>`
+            <tr>
+              <td>${j.title}</td>
+              <td><span class="badge badge-blue">${j.category}</span></td>
+              <td>${statusBadge(j.status)}</td>
+              <td>${dt(j.created_at)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+// ── Jobs ──────────────────────────────────────────────────────────────────────
+async function renderJobs() {
+  try {
+    const jobs = await api('GET', '/api/v1/jobs')
+    document.getElementById('content').innerHTML = `
+      <div class="section-header">
+        <h2>${t('tab_jobs')} (${jobs.length})</h2>
+        ${currentUser.role==='client' ? `<button class="btn btn-primary" onclick="showCreateJob()">${t('newJob')}</button>` : ''}
+      </div>
+      <div id="create-job-form"></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>${t('title')}</th><th>${t('category')}</th><th>${t('address')}</th><th>${t('price')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+          <tbody>${jobs.length ? jobs.map(j=>`
+            <tr>
+              <td><strong>${j.title}</strong><br><small style="color:#6b7280">${j.description?.slice(0,40)||''}</small></td>
+              <td><span class="badge badge-blue">${j.category}</span></td>
+              <td style="font-size:0.8rem">${j.address||'—'}</td>
+              <td>${j.final_price ? eur(j.final_price) : j.estimated_price ? eur(j.estimated_price)+'*' : '—'}</td>
+              <td>${statusBadge(j.status)}</td>
+              <td>
+                ${j.status==='pending' && currentUser.role==='artisan' ? `<button class="btn btn-primary" style="font-size:0.78rem;padding:4px 10px" onclick="acceptJob('${j.id}')">${t('accept')}</button>` : ''}
+                ${j.status==='accepted' && currentUser.role==='artisan' ? `<button class="btn btn-success" style="font-size:0.78rem;padding:4px 10px" onclick="startJob('${j.id}')">${t('start')}</button>` : ''}
+                ${j.status==='in_progress' && currentUser.role==='artisan' ? `<button class="btn btn-success" style="font-size:0.78rem;padding:4px 10px" onclick="showComplete('${j.id}')">${t('complete')}</button>` : ''}
+                ${['pending','accepted'].includes(j.status) ? `<button class="btn btn-danger" style="font-size:0.78rem;padding:4px 10px;margin-left:4px" onclick="cancelJob('${j.id}')">${t('cancel')}</button>` : ''}
+              </td>
+            </tr>`).join('') : `<tr><td colspan="6" class="empty">${t('noJobs')}</td></tr>`}
+          </tbody>
+        </table>
+      </div>`
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+function showCreateJob() {
+  document.getElementById('create-job-form').innerHTML = `
+    <div class="card" style="border:2px solid #1d4ed8">
+      <h2>${t('createJobTitle')}</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field"><label>${t('jobTitle')}</label><input id="nj-title" placeholder="es. Perdita rubinetto"></div>
+        <div class="field"><label>${t('jobCat')}</label><input id="nj-cat" placeholder="idraulico, elettricista..."></div>
+        <div class="field" style="grid-column:span 2"><label>${t('jobDesc')}</label><input id="nj-desc" placeholder="${t('description')}"></div>
+        <div class="field" style="grid-column:span 2"><label>${t('jobAddr')}</label><input id="nj-addr" placeholder="Via Roma 1, Milano"></div>
+        <div class="field"><label>Lat</label><input id="nj-lat" value="45.4642"></div>
+        <div class="field"><label>Lng</label><input id="nj-lng" value="9.1900"></div>
+        <div class="field"><label>${t('estimatedPrice')}</label><input id="nj-price" type="number" value="80"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" onclick="createJob()">${t('createJob')}</button>
+        <button class="btn btn-outline" onclick="document.getElementById('create-job-form').innerHTML=''">${t('cancel')}</button>
+      </div>
+      <div id="nj-alert" style="margin-top:10px"></div>
+    </div>`
+}
+
+async function createJob() {
+  try {
+    await api('POST', '/api/v1/jobs', {
+      title: document.getElementById('nj-title').value,
+      description: document.getElementById('nj-desc').value,
+      category: document.getElementById('nj-cat').value,
+      address: document.getElementById('nj-addr').value,
+      lat: parseFloat(document.getElementById('nj-lat').value),
+      lng: parseFloat(document.getElementById('nj-lng').value),
+      estimatedPrice: parseFloat(document.getElementById('nj-price').value),
+    })
+    showTab('jobs')
+  } catch(e) {
+    document.getElementById('nj-alert').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+async function acceptJob(id) { try { await api('PATCH',`/api/v1/jobs/${id}/accept`); showTab('jobs') } catch(e) { alert(e.message) } }
+async function startJob(id)  { try { await api('PATCH',`/api/v1/jobs/${id}/start`);  showTab('jobs') } catch(e) { alert(e.message) } }
+async function cancelJob(id) { try { await api('PATCH',`/api/v1/jobs/${id}/cancel`); showTab('jobs') } catch(e) { alert(e.message) } }
+
+function showComplete(id) {
+  const row = document.querySelector(`button[onclick="showComplete('${id}')"]`).closest('tr')
+  row.querySelector('td:last-child').innerHTML =
+    `${t('finalPrice')}: <input id="fp-${id}" type="number" value="80" style="width:80px;padding:4px">
+     <button class="btn btn-success" style="font-size:0.78rem;padding:4px 10px" onclick="completeJob('${id}')">${t('confirm')}</button>`
+}
+
+async function completeJob(id) {
+  try {
+    const fp = parseFloat(document.getElementById('fp-'+id).value)
+    await api('PATCH', `/api/v1/jobs/${id}/complete`, { finalPrice: fp })
+    showTab('jobs')
+  } catch(e) { alert(e.message) }
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+async function renderPayments() {
+  try {
+    const payments = await api('GET', '/api/v1/payments/')
+    const total = payments.filter(p=>p.status==='completed').reduce((s,p)=>s+(p.artisan_payout||0),0)
+    document.getElementById('content').innerHTML = `
+      <div class="section-header"><h2>${t('tab_payments')} (${payments.length})</h2></div>
+      ${payments.filter(p=>p.status==='completed').length ? `<div class="alert alert-ok">${t('artisanEarnings')}: <strong>${eur(total)}</strong></div>` : ''}
+      <div class="card">
+        <table>
+          <thead><tr><th>${t('jobCol')}</th><th>${t('amount')}</th><th>${t('platformFee')}</th><th>${t('artisanPayout')}</th><th>${t('status')}</th><th>${t('date')}</th></tr></thead>
+          <tbody>${payments.length ? payments.map(p=>`
+            <tr>
+              <td style="font-size:0.8rem">${p.job_id}</td>
+              <td>${eur(p.amount)}</td>
+              <td>${eur(p.platform_fee)}</td>
+              <td><strong>${eur(p.artisan_payout)}</strong></td>
+              <td>${statusBadge(p.status)}</td>
+              <td>${dt(p.created_at)}</td>
+            </tr>`).join('') : `<tr><td colspan="6" class="empty">${t('noPayments')}</td></tr>`}
+          </tbody>
+        </table>
+      </div>`
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function renderChat() {
+  try {
+    const jobs = await api('GET', '/api/v1/jobs')
+    const withArtisan = jobs.filter(j => j.artisan_id)
+    document.getElementById('content').innerHTML = `
+      <div class="section-header"><h2>${t('tab_chat')}</h2></div>
+      ${withArtisan.length === 0 ? `<div class="card"><p class="empty">${t('noChatAvail')}</p></div>` : ''}
+      ${withArtisan.map(j=>`
+        <div class="card">
+          <h2 style="margin-bottom:10px">${j.title} — <span class="badge badge-blue">${j.status}</span></h2>
+          <div id="chat-${j.id}" class="loader">${t('loading')}</div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <input id="msg-${j.id}" placeholder="${t('msgPlaceholder')}" style="flex:1" onkeydown="if(event.key==='Enter')sendMsg('${j.id}')">
+            <button class="btn btn-primary" onclick="sendMsg('${j.id}')">${t('sendBtn')}</button>
+          </div>
+        </div>`).join('')}`
+    withArtisan.forEach(j => loadMessages(j.id))
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+async function loadMessages(jobId) {
+  try {
+    const msgs = await api('GET', `/api/v1/chat/${jobId}/messages`)
+    const el = document.getElementById('chat-'+jobId)
+    if (!el) return
+    const locale = LANG === 'it' ? 'it-IT' : 'en-GB'
+    el.innerHTML = msgs.length ? msgs.map(m=>`
+      <div class="msg ${m.senderId===currentUser.id?'mine':'other'}">
+        <div class="bubble">${m.text}</div>
+        <div class="ts">${new Date(m.createdAt).toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`).join('') : `<p style="color:#9ca3af;font-size:0.85rem">${t('noMessages')}</p>`
+    el.scrollTop = el.scrollHeight
+  } catch(e) { /* silent */ }
+}
+
+async function sendMsg(jobId) {
+  const inp = document.getElementById('msg-'+jobId)
+  const text = inp.value.trim()
+  if (!text) return
+  inp.value = ''
+  try {
+    await fetch(BASE + '/api/v1/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer '+token },
+      body: JSON.stringify({ jobId, text })
+    })
+    setTimeout(() => loadMessages(jobId), 300)
+  } catch(e) {
+    const el = document.getElementById('chat-'+jobId)
+    el.innerHTML += `<div class="msg mine"><div class="bubble">${text}</div><div class="ts">adesso</div></div>`
+  }
+}
+
+// ── Mock State ────────────────────────────────────────────────────────────────
+async function renderMock() {
+  try {
+    const state = await api('GET', '/mock/state')
+    document.getElementById('content').innerHTML = `
+      <div class="section-header">
+        <h2>${t('mockTitle')}</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="runSeed()">${t('seedBtn')}</button>
+          <button class="btn btn-danger" onclick="resetMock()">${t('resetBtn')}</button>
+        </div>
+      </div>
+      <div id="mock-alert"></div>
+      <div class="tag-row">${Object.entries(state.mode).map(([k,v])=>`<span class="badge badge-${v==='mock'?'blue':'green'}">${k}: ${v}</span>`).join('')}</div>
+      <div class="card">
+        <h2>${t('usersTitle')} (${state.postgres.users.length})</h2>
+        <table>
+          <thead><tr><th>${t('email')}</th><th>${t('name')}</th><th>${t('role')}</th></tr></thead>
+          <tbody>${state.postgres.users.map(u=>`<tr><td>${u.email}</td><td>${u.name}</td><td>${roleBadge(u.role)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>${t('jobsTitle')} (${state.postgres.jobs.length})</h2>
+        <table>
+          <thead><tr><th>${t('title')}</th><th>${t('status')}</th><th>${t('price')}</th></tr></thead>
+          <tbody>${state.postgres.jobs.map(j=>`<tr><td>${j.title}</td><td>${statusBadge(j.status)}</td><td>${j.final_price?eur(j.final_price):j.estimated_price?eur(j.estimated_price)+'*':'—'}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>${t('paymentsTitle')} (${state.postgres.payments.length})</h2>
+        <table>
+          <thead><tr><th>${t('jobCol')}</th><th>${t('amount')}</th><th>${t('status')}</th></tr></thead>
+          <tbody>${state.postgres.payments.map(p=>`<tr><td style="font-size:0.78rem">${p.job_id}</td><td>${eur(p.amount)}</td><td>${statusBadge(p.status)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${state.stripe?.paymentIntents?.length ? `<div class="card"><h2>Stripe PaymentIntents</h2><pre>${JSON.stringify(state.stripe.paymentIntents,null,2)}</pre></div>` : ''}
+      ${state.firebase?.lastNotifications?.length ? `<div class="card"><h2>Firebase Notifications</h2><pre>${JSON.stringify(state.firebase.lastNotifications,null,2)}</pre></div>` : ''}`
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+async function runSeed() {
+  try {
+    const r = await api('POST', '/mock/seed')
+    document.getElementById('mock-alert').innerHTML = `<div class="alert alert-ok">${r.message} ${t('reloading')}</div>`
+    setTimeout(() => renderMock(), 800)
+  } catch(e) {
+    document.getElementById('mock-alert').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+async function resetMock() {
+  if (!confirm(t('seedConfirm'))) return
+  try {
+    const r = await api('POST', '/mock/reset')
+    document.getElementById('mock-alert').innerHTML = `<div class="alert alert-ok">${r.message} ${t('reloading')}</div>`
+    setTimeout(() => renderMock(), 800)
+  } catch(e) {
+    document.getElementById('mock-alert').innerHTML = `<div class="alert alert-err">${e.message}</div>`
+  }
+}
+
+// ── Renderers map ─────────────────────────────────────────────────────────────
+const RENDERERS = {
+  dashboard: renderDashboard,
+  jobs:      renderJobs,
+  payments:  renderPayments,
+  chat:      renderChat,
+  mock:      renderMock,
+}
+
+// ── Enter on login ────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') login()
+})
+</script>
+</body>
+</html>
