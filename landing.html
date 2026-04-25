@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artisan — Il tuo artigiano di fiducia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --blue: #1d4ed8; --blue-dark: #1e40af; --purple: #7c3aed;
+      --gray: #f8fafc; --text: #0f172a; --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; color: var(--text); background: white; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(255,255,255,0.88); backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 0 40px; height: 62px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { font-size: 1.25rem; font-weight: 900; color: var(--blue); display: flex; align-items: center; gap: 8px; text-decoration: none; }
+    .nav-right { display: flex; align-items: center; gap: 14px; }
+    .lang-select {
+      background: none; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 5px 10px; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+    }
+    .btn-nav {
+      background: var(--blue); color: white; border: none; border-radius: 9px;
+      padding: 9px 20px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .btn-nav:hover { background: var(--blue-dark); }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh; padding-top: 62px;
+      display: grid; grid-template-columns: 1fr 1fr;
+    }
+    .hero-left {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 60px 56px 60px 80px;
+      background: linear-gradient(145deg, #eff6ff 0%, #f5f3ff 60%, #fdf4ff 100%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: white; border: 1px solid #ddd6fe; color: var(--purple);
+      padding: 6px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+      margin-bottom: 28px; width: fit-content; box-shadow: 0 2px 8px rgba(124,58,237,0.1);
+    }
+    .hero-title {
+      font-size: clamp(2rem, 3.2vw, 3.4rem); font-weight: 900; line-height: 1.08;
+      margin-bottom: 22px; letter-spacing: -0.02em;
+    }
+    .hero-title .gradient {
+      background: linear-gradient(130deg, var(--blue) 20%, var(--purple) 80%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub { font-size: 1.1rem; color: var(--muted); line-height: 1.65; margin-bottom: 38px; max-width: 460px; }
+    .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 44px; }
+    .btn-primary {
+      background: var(--blue); color: white; border: none; border-radius: 11px;
+      padding: 15px 30px; font-size: 1rem; font-weight: 700; cursor: pointer;
+      text-decoration: none; display: inline-block;
+      box-shadow: 0 4px 18px rgba(29,78,216,0.38);
+      transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(29,78,216,0.42); }
+    .btn-secondary {
+      background: white; color: var(--text); border: 1.5px solid #e2e8f0;
+      border-radius: 11px; padding: 15px 30px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+    .hero-social-proof { display: flex; align-items: center; gap: 14px; }
+    .avatars { display: flex; }
+    .avatars span {
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; color: white; margin-left: -8px;
+    }
+    .avatars span:first-child { margin-left: 0; }
+    .hero-right { position: relative; overflow: hidden; }
+    #map { width: 100%; height: 100%; min-height: 520px; }
+    .map-pill {
+      position: absolute; top: 18px; left: 18px; z-index: 1000;
+      background: white; border-radius: 12px; padding: 10px 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); font-size: 0.83rem; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .live-dot {
+      width: 9px; height: 9px; background: #22c55e; border-radius: 50%;
+      animation: livepulse 1.8s infinite;
+    }
+    @keyframes livepulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      background: linear-gradient(90deg, var(--blue) 0%, var(--purple) 100%);
+      color: white; padding: 28px 80px;
+      display: grid; grid-template-columns: repeat(4, 1fr); text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; }
+    .stat-lbl { font-size: 0.82rem; opacity: 0.82; margin-top: 3px; }
+
+    /* ── Sections ── */
+    .section { padding: 90px 80px; }
+    .section-label {
+      display: inline-block; background: #eff6ff; color: var(--blue);
+      border-radius: 999px; padding: 4px 14px; font-size: 0.8rem; font-weight: 700;
+      margin-bottom: 14px; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .section-title { font-size: 2.1rem; font-weight: 900; margin-bottom: 14px; letter-spacing: -0.02em; }
+    .section-sub { color: var(--muted); font-size: 1.05rem; max-width: 560px; line-height: 1.6; margin-bottom: 52px; }
+
+    /* ── Feature cards ── */
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .feature-card {
+      background: white; border: 1px solid #e8edf5; border-radius: 18px; padding: 32px 26px;
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s;
+      transform-style: preserve-3d; perspective: 800px; cursor: default;
+    }
+    .feature-card:hover { transform: translateY(-10px) rotateX(4deg) rotateY(-2deg); box-shadow: 0 24px 50px rgba(0,0,0,0.1); }
+    .feature-icon {
+      width: 54px; height: 54px; border-radius: 14px; margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+    }
+    .icon-blue   { background: #eff6ff; }
+    .icon-purple { background: #f5f3ff; }
+    .icon-green  { background: #f0fdf4; }
+    .icon-orange { background: #fff7ed; }
+    .icon-pink   { background: #fdf2f8; }
+    .icon-teal   { background: #f0fdfa; }
+    .feature-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+    .feature-desc { color: var(--muted); font-size: 0.93rem; line-height: 1.65; }
+
+    /* ── How it works ── */
+    .steps-section { background: var(--gray); padding: 90px 80px; }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; position: relative; }
+    .steps-grid::before {
+      content: ''; position: absolute; top: 35px; left: 16%; right: 16%; height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--purple));
+    }
+    .step { text-align: center; }
+    .step-circle {
+      width: 70px; height: 70px; border-radius: 50%; margin: 0 auto 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 900; color: white;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      box-shadow: 0 8px 24px rgba(29,78,216,0.3);
+    }
+    .step-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+    .step-desc { color: var(--muted); font-size: 0.92rem; line-height: 1.6; max-width: 220px; margin: 0 auto; }
+
+    /* ── Reviews ── */
+    .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .review-card { background: white; border: 1px solid #e8edf5; border-radius: 16px; padding: 26px; }
+    .review-stars { color: #f59e0b; font-size: 0.95rem; margin-bottom: 14px; }
+    .review-text { color: var(--muted); font-size: 0.93rem; line-height: 1.65; margin-bottom: 18px; font-style: italic; }
+    .review-author { display: flex; align-items: center; gap: 12px; }
+    .review-avatar {
+      width: 40px; height: 40px; border-radius: 50%; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .review-name { font-weight: 700; font-size: 0.9rem; }
+    .review-role { color: var(--muted); font-size: 0.8rem; margin-top: 1px; }
+
+    /* ── CTA ── */
+    .cta-section {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+      padding: 90px 80px; text-align: center; color: white;
+    }
+    .cta-section h2 { font-size: 2.4rem; font-weight: 900; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .cta-section p { opacity: 0.85; font-size: 1.05rem; margin-bottom: 40px; }
+    .btn-white {
+      background: white; color: var(--blue); border: none; border-radius: 11px;
+      padding: 15px 36px; font-size: 1rem; font-weight: 700; cursor: pointer;
+      text-decoration: none; display: inline-block;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18); transition: transform 0.18s;
+    }
+    .btn-white:hover { transform: translateY(-3px); }
+    .btn-outline-white {
+      background: transparent; color: white; border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 11px; padding: 15px 36px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      margin-left: 12px; transition: border-color 0.15s;
+    }
+    .btn-outline-white:hover { border-color: white; }
+
+    /* ── Footer ── */
+    footer {
+      background: #0f172a; color: #94a3b8;
+      padding: 32px 80px; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    }
+    .footer-logo { color: white; font-weight: 900; font-size: 1.1rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-left { padding: 40px 28px; }
+      .hero-right { min-height: 320px; }
+      .stats-bar { grid-template-columns: repeat(2,1fr); padding: 28px 28px; gap: 16px; }
+      .section, .steps-section, .cta-section { padding: 56px 28px; }
+      .cards, .steps-grid, .reviews-grid { grid-template-columns: 1fr; }
+      .steps-grid::before { display: none; }
+      footer { padding: 28px; flex-direction: column; text-align: center; }
+      nav { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav>
+  <a class="nav-logo" href="#">🔧 Artisan</a>
+  <div class="nav-right">
+    <select class="lang-select" onchange="setLang(this.value)" id="lang-sel">
+      <option value="it">🇮🇹 IT</option>
+      <option value="en">🇬🇧 EN</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="es">🇪🇸 ES</option>
+    </select>
+    <a class="btn-nav" href="/app" data-t="nav_cta">Accedi all'app →</a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">⚡ <span data-t="badge">Disponibile nella tua città</span></div>
+    <h1 class="hero-title">
+      <span data-t="hero_title_1">Trova l'artigiano</span><br>
+      <span class="gradient" data-t="hero_title_2">perfetto vicino a te</span>
+    </h1>
+    <p class="hero-sub" data-t="hero_sub">
+      Idraulici, elettricisti, falegnami — professionisti verificati, prezzi trasparenti,
+      pagamenti sicuri. Prenota in pochi secondi.
+    </p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="/app" data-t="cta_primary">Cerca artigiani</a>
+      <a class="btn-secondary" href="/app" data-t="cta_secondary">Sei un artigiano? Registrati</a>
+    </div>
+    <div class="hero-social-proof">
+      <div class="avatars">
+        <span style="background:linear-gradient(135deg,#1d4ed8,#7c3aed)">MR</span>
+        <span style="background:linear-gradient(135deg,#7c3aed,#db2777)">LG</span>
+        <span style="background:linear-gradient(135deg,#059669,#1d4ed8)">AS</span>
+        <span style="background:linear-gradient(135deg,#d97706,#dc2626)">+</span>
+      </div>
+      <span style="font-size:0.88rem;color:var(--muted)" data-t="social_proof">
+        <strong style="color:var(--text)">500+ artigiani</strong> già attivi
+      </span>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="map-pill">
+      <div class="live-dot"></div>
+      <span data-t="map_live">Artigiani online ora</span>
+    </div>
+    <div id="map"></div>
+  </div>
+</section>
+
+<!-- ── Stats ── -->
+<div class="stats-bar">
+  <div><div class="stat-num">500+</div><div class="stat-lbl" data-t="stat_artisans">Artigiani verificati</div></div>
+  <div><div class="stat-num">4.8 ★</div><div class="stat-lbl" data-t="stat_rating">Rating medio</div></div>
+  <div><div class="stat-num">10k+</div><div class="stat-lbl" data-t="stat_jobs">Lavori completati</div></div>
+  <div><div class="stat-num">&lt; 2h</div><div class="stat-lbl" data-t="stat_response">Tempo di risposta</div></div>
+</div>
+
+<!-- ── Features ── -->
+<section class="section" id="features">
+  <div style="max-width:960px;margin:0 auto">
+    <div class="section-label" data-t="feat_label">PERCHÉ ARTISAN</div>
+    <h2 class="section-title" data-t="feat_title">Tutto quello che ti serve</h2>
+    <p class="section-sub" data-t="feat_sub">Un'unica piattaforma per trovare, prenotare e pagare il tuo artigiano — senza sorprese.</p>
+    <div class="cards">
+      <div class="feature-card">
+        <div class="feature-icon icon-blue">📍</div>
+        <div class="feature-title" data-t="f1_title">Vicino a te</div>
+        <div class="feature-desc" data-t="f1_desc">Vedi gli artigiani disponibili in tempo reale sulla mappa. Distanza, tempo stimato e disponibilità sempre aggiornati.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-purple">✅</div>
+        <div class="feature-title" data-t="f2_title">Professionisti verificati</div>
+        <div class="feature-desc" data-t="f2_desc">Ogni artigiano è verificato, assicurato e valutato dalla community. Nessuna sorpresa, solo qualità garantita.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-green">💳</div>
+        <div class="feature-title" data-t="f3_title">Pagamenti sicuri</div>
+        <div class="feature-desc" data-t="f3_desc">Paga solo a lavoro completato. Commissioni trasparenti, fattura automatica, rimborso garantito se qualcosa va storto.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-orange">💬</div>
+        <div class="feature-title" data-t="f4_title">Chat integrata</div>
+        <div class="feature-desc" data-t="f4_desc">Parla direttamente con l'artigiano prima, durante e dopo il lavoro. Tutto tracciato e sicuro.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-pink">⭐</div>
+        <div class="feature-title" data-t="f5_title">Recensioni reali</div>
+        <div class="feature-desc" data-t="f5_desc">Solo chi ha completato un lavoro può lasciare una recensione. Rating onesti, non comprabili.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-teal">🔔</div>
+        <div class="feature-title" data-t="f6_title">Notifiche in tempo reale</div>
+        <div class="feature-desc" data-t="f6_desc">Ricevi aggiornamenti istantanei sull'accettazione, avanzamento e completamento del tuo lavoro.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ── -->
+<section class="steps-section" id="how">
+  <div style="max-width:960px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:52px">
+      <div class="section-label" data-t="steps_label">COME FUNZIONA</div>
+      <h2 class="section-title" data-t="steps_title">In 3 passi semplici</h2>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-title" data-t="s1_title">Cerca</div>
+        <div class="step-desc" data-t="s1_desc">Inserisci il tipo di lavoro e la tua posizione. Vedi gli artigiani disponibili vicino a te.</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-title" data-t="s2_title">Prenota</div>
+        <div class="step-desc" data-t="s2_desc">Scegli l'artigiano in base a rating e prezzo. Conferma il lavoro in un click.</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-title" data-t="s3_title">Paga & Recensisci</div>
+        <div class="step-desc" data-t="s3_desc">Paga solo a lavoro finito. Lascia una recensione e aiuta la community.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Reviews ── -->
+<section class="section" id="reviews">
+  <div style="max-width:960px;margin:0 auto">
+    <div class="section-label" data-t="rev_label">RECENSIONI</div>
+    <h2 class="section-title" data-t="rev_title">Cosa dicono i clienti</h2>
+    <p class="section-sub" data-t="rev_sub">Migliaia di lavori completati, migliaia di persone soddisfatte.</p>
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div class="review-stars">★★★★★</div>
+        <div class="review-text" data-t="r1_text">"Luigi ha risolto la perdita in mezz'ora. Puntuale, professionale e prezzo onesto. Lo richiamerò sicuramente!"</div>
+        <div class="review-author">
+          <div class="review-avatar" style="background:linear-gradient(135deg,#1d4ed8,#7c3aed)">MR</div>
+          <div><div class="review-name">Mario R.</div><div class="review-role" data-t="r1_role">Cliente — Milano</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="review-stars">★★★★★</div>
+        <div class="review-text" data-t="r2_text">"Finalmente una piattaforma seria. Ho trovato un elettricista in 10 minuti, prezzi chiari e fattura immediata."</div>
+        <div class="review-author">
+          <div class="review-avatar" style="background:linear-gradient(135deg,#059669,#1d4ed8)">AS</div>
+          <div><div class="review-name">Anna S.</div><div class="review-role" data-t="r2_role">Cliente — Roma</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="review-stars">★★★★☆</div>
+        <div class="review-text" data-t="r3_text">"Come artigiano ricevo lavori di qualità e vengo pagato subito. La gestione dei lavori è semplicissima."</div>
+        <div class="review-author">
+          <div class="review-avatar" style="background:linear-gradient(135deg,#d97706,#dc2626)">GF</div>
+          <div><div class="review-name">Giuseppe F.</div><div class="review-role" data-t="r3_role">Artigiano — Torino</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <h2 data-t="cta_title">Pronto a iniziare?</h2>
+  <p data-t="cta_sub">Unisciti a migliaia di clienti e artigiani che si fidano di Artisan ogni giorno.</p>
+  <a class="btn-white" href="/app" data-t="cta_btn1">Cerca artigiani →</a>
+  <a class="btn-outline-white" href="/app" data-t="cta_btn2">Registrati come artigiano</a>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="footer-logo">🔧 Artisan</div>
+  <div style="font-size:0.85rem">© 2025 Artisan. <span data-t="footer_rights">Tutti i diritti riservati.</span></div>
+  <div style="display:flex;gap:16px;font-size:0.85rem">
+    <a href="#" style="color:inherit;text-decoration:none" data-t="footer_privacy">Privacy</a>
+    <a href="#" style="color:inherit;text-decoration:none" data-t="footer_terms">Termini</a>
+    <a href="/app" style="color:white;text-decoration:none;font-weight:600" data-t="footer_app">Apri app →</a>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Translations ───────────────────────────────────────────────────────────────
+const T = {
+  it: {
+    nav_cta: 'Accedi all\'app →',
+    badge: 'Disponibile nella tua città',
+    hero_title_1: 'Trova l\'artigiano', hero_title_2: 'perfetto vicino a te',
+    hero_sub: 'Idraulici, elettricisti, falegnami — professionisti verificati, prezzi trasparenti, pagamenti sicuri. Prenota in pochi secondi.',
+    cta_primary: 'Cerca artigiani', cta_secondary: 'Sei un artigiano? Registrati',
+    social_proof: '<strong style="color:var(--text)">500+ artigiani</strong> già attivi',
+    map_live: 'Artigiani online ora',
+    stat_artisans: 'Artigiani verificati', stat_rating: 'Rating medio',
+    stat_jobs: 'Lavori completati', stat_response: 'Tempo di risposta',
+    feat_label: 'PERCHÉ ARTISAN', feat_title: 'Tutto quello che ti serve',
+    feat_sub: 'Un\'unica piattaforma per trovare, prenotare e pagare il tuo artigiano — senza sorprese.',
+    f1_title: 'Vicino a te', f1_desc: 'Vedi gli artigiani disponibili in tempo reale sulla mappa. Distanza, tempo stimato e disponibilità sempre aggiornati.',
+    f2_title: 'Professionisti verificati', f2_desc: 'Ogni artigiano è verificato, assicurato e valutato dalla community. Nessuna sorpresa, solo qualità garantita.',
+    f3_title: 'Pagamenti sicuri', f3_desc: 'Paga solo a lavoro completato. Commissioni trasparenti, fattura automatica, rimborso garantito.',
+    f4_title: 'Chat integrata', f4_desc: 'Parla direttamente con l\'artigiano prima, durante e dopo il lavoro. Tutto tracciato e sicuro.',
+    f5_title: 'Recensioni reali', f5_desc: 'Solo chi ha completato un lavoro può lasciare una recensione. Rating onesti, non comprabili.',
+    f6_title: 'Notifiche in tempo reale', f6_desc: 'Ricevi aggiornamenti istantanei sull\'accettazione, avanzamento e completamento del tuo lavoro.',
+    steps_label: 'COME FUNZIONA', steps_title: 'In 3 passi semplici',
+    s1_title: 'Cerca', s1_desc: 'Inserisci il tipo di lavoro e la tua posizione. Vedi gli artigiani disponibili vicino a te.',
+    s2_title: 'Prenota', s2_desc: 'Scegli l\'artigiano in base a rating e prezzo. Conferma il lavoro in un click.',
+    s3_title: 'Paga & Recensisci', s3_desc: 'Paga solo a lavoro finito. Lascia una recensione e aiuta la community.',
+    rev_label: 'RECENSIONI', rev_title: 'Cosa dicono i clienti',
+    rev_sub: 'Migliaia di lavori completati, migliaia di persone soddisfatte.',
+    r1_text: '"Luigi ha risolto la perdita in mezz\'ora. Puntuale, professionale e prezzo onesto. Lo richiamerò!"',
+    r1_role: 'Cliente — Milano',
+    r2_text: '"Finalmente una piattaforma seria. Ho trovato un elettricista in 10 minuti, prezzi chiari e fattura immediata."',
+    r2_role: 'Cliente — Roma',
+    r3_text: '"Come artigiano ricevo lavori di qualità e vengo pagato subito. La gestione è semplicissima."',
+    r3_role: 'Artigiano — Torino',
+    cta_title: 'Pronto a iniziare?',
+    cta_sub: 'Unisciti a migliaia di clienti e artigiani che si fidano di Artisan ogni giorno.',
+    cta_btn1: 'Cerca artigiani →', cta_btn2: 'Registrati come artigiano',
+    footer_rights: 'Tutti i diritti riservati.', footer_privacy: 'Privacy',
+    footer_terms: 'Termini', footer_app: 'Apri app →',
+    pop_available: 'Disponibile', pop_rating: 'Rating',
+    pop_book: 'Prenota →',
+  },
+  en: {
+    nav_cta: 'Open app →',
+    badge: 'Available in your city',
+    hero_title_1: 'Find the perfect', hero_title_2: 'artisan near you',
+    hero_sub: 'Plumbers, electricians, carpenters — verified professionals, transparent pricing, secure payments. Book in seconds.',
+    cta_primary: 'Find artisans', cta_secondary: 'Are you an artisan? Sign up',
+    social_proof: '<strong style="color:var(--text)">500+ artisans</strong> already active',
+    map_live: 'Artisans online now',
+    stat_artisans: 'Verified artisans', stat_rating: 'Average rating',
+    stat_jobs: 'Completed jobs', stat_response: 'Response time',
+    feat_label: 'WHY ARTISAN', feat_title: 'Everything you need',
+    feat_sub: 'One platform to find, book and pay your artisan — no surprises.',
+    f1_title: 'Near you', f1_desc: 'See available artisans in real time on the map. Distance, estimated time and availability always up to date.',
+    f2_title: 'Verified professionals', f2_desc: 'Every artisan is verified, insured and rated by the community. No surprises, guaranteed quality.',
+    f3_title: 'Secure payments', f3_desc: 'Pay only when the job is done. Transparent fees, automatic invoice, guaranteed refund.',
+    f4_title: 'Integrated chat', f4_desc: 'Talk directly with the artisan before, during and after the job. All tracked and secure.',
+    f5_title: 'Real reviews', f5_desc: 'Only those who completed a job can leave a review. Honest, unbuyable ratings.',
+    f6_title: 'Real-time notifications', f6_desc: 'Get instant updates on acceptance, progress and completion of your job.',
+    steps_label: 'HOW IT WORKS', steps_title: 'In 3 simple steps',
+    s1_title: 'Search', s1_desc: 'Enter the type of job and your location. See available artisans near you.',
+    s2_title: 'Book', s2_desc: 'Choose the artisan based on rating and price. Confirm the job in one click.',
+    s3_title: 'Pay & Review', s3_desc: 'Pay only when the job is done. Leave a review and help the community.',
+    rev_label: 'REVIEWS', rev_title: 'What customers say',
+    rev_sub: 'Thousands of completed jobs, thousands of satisfied people.',
+    r1_text: '"Luigi fixed the leak in half an hour. Punctual, professional and fair price. I\'ll call him again!"',
+    r1_role: 'Customer — Milan',
+    r2_text: '"Finally a serious platform. I found an electrician in 10 minutes, clear prices and immediate invoice."',
+    r2_role: 'Customer — Rome',
+    r3_text: '"As an artisan I get quality jobs and get paid immediately. Job management is super simple."',
+    r3_role: 'Artisan — Turin',
+    cta_title: 'Ready to start?',
+    cta_sub: 'Join thousands of customers and artisans who trust Artisan every day.',
+    cta_btn1: 'Find artisans →', cta_btn2: 'Sign up as artisan',
+    footer_rights: 'All rights reserved.', footer_privacy: 'Privacy',
+    footer_terms: 'Terms', footer_app: 'Open app →',
+    pop_available: 'Available', pop_rating: 'Rating', pop_book: 'Book →',
+  },
+  fr: {
+    nav_cta: 'Ouvrir l\'app →',
+    badge: 'Disponible dans votre ville',
+    hero_title_1: 'Trouvez l\'artisan', hero_title_2: 'parfait près de chez vous',
+    hero_sub: 'Plombiers, électriciens, menuisiers — professionnels vérifiés, prix transparents, paiements sécurisés. Réservez en quelques secondes.',
+    cta_primary: 'Chercher des artisans', cta_secondary: 'Vous êtes artisan ? Inscrivez-vous',
+    social_proof: '<strong style="color:var(--text)">500+ artisans</strong> déjà actifs',
+    map_live: 'Artisans en ligne maintenant',
+    stat_artisans: 'Artisans vérifiés', stat_rating: 'Note moyenne',
+    stat_jobs: 'Travaux réalisés', stat_response: 'Temps de réponse',
+    feat_label: 'POURQUOI ARTISAN', feat_title: 'Tout ce dont vous avez besoin',
+    feat_sub: 'Une seule plateforme pour trouver, réserver et payer votre artisan — sans surprises.',
+    f1_title: 'Près de chez vous', f1_desc: 'Voyez les artisans disponibles en temps réel sur la carte. Distance et disponibilité toujours à jour.',
+    f2_title: 'Professionnels vérifiés', f2_desc: 'Chaque artisan est vérifié, assuré et évalué par la communauté. Qualité garantie.',
+    f3_title: 'Paiements sécurisés', f3_desc: 'Payez uniquement une fois le travail terminé. Frais transparents, facture automatique.',
+    f4_title: 'Chat intégré', f4_desc: 'Parlez directement avec l\'artisan avant, pendant et après le travail. Tout est tracé.',
+    f5_title: 'Avis réels', f5_desc: 'Seuls ceux qui ont terminé un travail peuvent laisser un avis. Notes honnêtes.',
+    f6_title: 'Notifications en temps réel', f6_desc: 'Recevez des mises à jour instantanées sur l\'avancement de votre travail.',
+    steps_label: 'COMMENT ÇA MARCHE', steps_title: 'En 3 étapes simples',
+    s1_title: 'Cherchez', s1_desc: 'Entrez le type de travail et votre position. Voyez les artisans disponibles près de chez vous.',
+    s2_title: 'Réservez', s2_desc: 'Choisissez l\'artisan selon sa note et son prix. Confirmez en un clic.',
+    s3_title: 'Payez & Évaluez', s3_desc: 'Payez uniquement quand le travail est fini. Laissez un avis et aidez la communauté.',
+    rev_label: 'AVIS', rev_title: 'Ce que disent les clients',
+    rev_sub: 'Des milliers de travaux réalisés, des milliers de personnes satisfaites.',
+    r1_text: '"Luigi a réparé la fuite en une demi-heure. Ponctuel, professionnel et prix honnête. Je le rappellerai !"',
+    r1_role: 'Client — Milan',
+    r2_text: '"Enfin une plateforme sérieuse. J\'ai trouvé un électricien en 10 minutes, prix clairs et facture immédiate."',
+    r2_role: 'Client — Rome',
+    r3_text: '"En tant qu\'artisan, je reçois des travaux de qualité et suis payé immédiatement. La gestion est très simple."',
+    r3_role: 'Artisan — Turin',
+    cta_title: 'Prêt à commencer ?',
+    cta_sub: 'Rejoignez des milliers de clients et d\'artisans qui font confiance à Artisan chaque jour.',
+    cta_btn1: 'Chercher des artisans →', cta_btn2: 'S\'inscrire comme artisan',
+    footer_rights: 'Tous droits réservés.', footer_privacy: 'Confidentialité',
+    footer_terms: 'Conditions', footer_app: 'Ouvrir l\'app →',
+    pop_available: 'Disponible', pop_rating: 'Note', pop_book: 'Réserver →',
+  },
+  es: {
+    nav_cta: 'Abrir app →',
+    badge: 'Disponible en tu ciudad',
+    hero_title_1: 'Encuentra al artesano', hero_title_2: 'perfecto cerca de ti',
+    hero_sub: 'Fontaneros, electricistas, carpinteros — profesionales verificados, precios transparentes, pagos seguros. Reserva en segundos.',
+    cta_primary: 'Buscar artesanos', cta_secondary: '¿Eres artesano? Regístrate',
+    social_proof: '<strong style="color:var(--text)">500+ artesanos</strong> ya activos',
+    map_live: 'Artesanos en línea ahora',
+    stat_artisans: 'Artesanos verificados', stat_rating: 'Valoración media',
+    stat_jobs: 'Trabajos completados', stat_response: 'Tiempo de respuesta',
+    feat_label: 'POR QUÉ ARTISAN', feat_title: 'Todo lo que necesitas',
+    feat_sub: 'Una sola plataforma para encontrar, reservar y pagar a tu artesano — sin sorpresas.',
+    f1_title: 'Cerca de ti', f1_desc: 'Ve los artesanos disponibles en tiempo real en el mapa. Distancia y disponibilidad siempre actualizadas.',
+    f2_title: 'Profesionales verificados', f2_desc: 'Cada artesano está verificado, asegurado y valorado por la comunidad. Calidad garantizada.',
+    f3_title: 'Pagos seguros', f3_desc: 'Paga solo cuando el trabajo esté terminado. Comisiones transparentes, factura automática.',
+    f4_title: 'Chat integrado', f4_desc: 'Habla directamente con el artesano antes, durante y después del trabajo. Todo rastreado.',
+    f5_title: 'Reseñas reales', f5_desc: 'Solo quienes completaron un trabajo pueden dejar una reseña. Valoraciones honestas.',
+    f6_title: 'Notificaciones en tiempo real', f6_desc: 'Recibe actualizaciones instantáneas sobre el progreso de tu trabajo.',
+    steps_label: 'CÓMO FUNCIONA', steps_title: 'En 3 pasos simples',
+    s1_title: 'Busca', s1_desc: 'Introduce el tipo de trabajo y tu ubicación. Ve los artesanos disponibles cerca de ti.',
+    s2_title: 'Reserva', s2_desc: 'Elige al artesano según valoración y precio. Confirma el trabajo en un clic.',
+    s3_title: 'Paga & Valora', s3_desc: 'Paga solo cuando el trabajo esté hecho. Deja una reseña y ayuda a la comunidad.',
+    rev_label: 'RESEÑAS', rev_title: 'Lo que dicen los clientes',
+    rev_sub: 'Miles de trabajos completados, miles de personas satisfechas.',
+    r1_text: '"Luigi arregló la fuga en media hora. Puntual, profesional y precio justo. ¡Lo volveré a llamar!"',
+    r1_role: 'Cliente — Milán',
+    r2_text: '"Por fin una plataforma seria. Encontré un electricista en 10 minutos, precios claros y factura inmediata."',
+    r2_role: 'Cliente — Roma',
+    r3_text: '"Como artesano recibo trabajos de calidad y me pagan de inmediato. La gestión es muy sencilla."',
+    r3_role: 'Artesano — Turín',
+    cta_title: '¿Listo para empezar?',
+    cta_sub: 'Únete a miles de clientes y artesanos que confían en Artisan cada día.',
+    cta_btn1: 'Buscar artesanos →', cta_btn2: 'Registrarse como artesano',
+    footer_rights: 'Todos los derechos reservados.', footer_privacy: 'Privacidad',
+    footer_terms: 'Términos', footer_app: 'Abrir app →',
+    pop_available: 'Disponible', pop_rating: 'Valoración', pop_book: 'Reservar →',
+  },
+}
+
+let LANG = 'it'
+
+function setLang(lang) {
+  LANG = lang
+  document.querySelector('html').lang = lang
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.getAttribute('data-t')
+    if (T[lang] && T[lang][key]) el.innerHTML = T[lang][key]
+  })
+  updateMapPopups()
+}
+
+// ── Map ────────────────────────────────────────────────────────────────────────
+const ARTISANS = [
+  { lat: 45.4642, lng: 9.1900, name: 'Luigi B.',    cat: '🔧 Idraulico',     rating: 4.8, color: '#1d4ed8' },
+  { lat: 45.4720, lng: 9.1800, name: 'Marco T.',    cat: '⚡ Elettricista',  rating: 4.9, color: '#7c3aed' },
+  { lat: 45.4580, lng: 9.1950, name: 'Anna V.',     cat: '🖌 Imbianchino',   rating: 4.7, color: '#059669' },
+  { lat: 45.4660, lng: 9.2100, name: 'Roberto C.',  cat: '🪚 Falegname',     rating: 4.6, color: '#d97706' },
+  { lat: 45.4530, lng: 9.1750, name: 'Sara M.',     cat: '🌱 Giardiniere',   rating: 5.0, color: '#db2777' },
+  { lat: 45.4700, lng: 9.2050, name: 'Franco P.',   cat: '🏗 Muratore',      rating: 4.5, color: '#0891b2' },
+]
+
+let markers = []
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([45.4642, 9.1900], 13)
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CartoDB', maxZoom: 19
+}).addTo(map)
+
+function makeIcon(color) {
+  return L.divIcon({
+    html: `<div style="
+      width:40px;height:40px;border-radius:50% 50% 50% 0;
+      background:${color};border:3px solid white;
+      box-shadow:0 3px 12px rgba(0,0,0,0.3);
+      transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
+    "><div style="transform:rotate(45deg);color:white;font-size:14px">●</div></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -44], className: '',
+  })
+}
+
+function updateMapPopups() {
+  const avail = T[LANG]?.pop_available || 'Disponibile'
+  const ratingLbl = T[LANG]?.pop_rating || 'Rating'
+  const bookLbl = T[LANG]?.pop_book || 'Prenota →'
+  markers.forEach((m, i) => {
+    const a = ARTISANS[i]
+    m.setPopupContent(`
+      <div style="font-family:Inter,system-ui,sans-serif;min-width:160px">
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px">${a.name}</div>
+        <div style="color:#64748b;font-size:0.83rem;margin-bottom:8px">${a.cat}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="color:#f59e0b;font-weight:600">★ ${a.rating}</span>
+          <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:600">${avail}</span>
+        </div>
+        <a href="/app" style="display:block;text-align:center;background:${a.color};color:white;padding:7px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.85rem">${bookLbl}</a>
+      </div>`)
+  })
+}
+
+ARTISANS.forEach(a => {
+  const m = L.marker([a.lat, a.lng], { icon: makeIcon(a.color) })
+    .addTo(map)
+    .bindPopup('', { maxWidth: 200 })
+  markers.push(m)
+})
+updateMapPopups()
+</script>
+</body>
+</html>
